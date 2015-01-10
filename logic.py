@@ -62,7 +62,7 @@ class Board(object):
         try:
             if left == 0:
                 return True
-            return self._board[row][col].owner == player and  self.__win_by_col_from_location(row, col+1, player, left-1)
+            return self._board[row][col].owner == player and self.__win_by_col_from_location(row, col+1, player, left-1)
         except IndexError:
             return False
 
@@ -90,7 +90,7 @@ class Board(object):
 
             LOGGER.debug("Trying to put %s in %d, %d - %s" % (_player, row, _column, _piece))
             if not _piece.is_taken():
-                _piece._owner = _player
+                _piece.owner = _player
                 return _player
 
         raise LocationTakenError()
@@ -187,8 +187,7 @@ class test_ninarow_logic(unittest.TestCase):
         self._player2.put_one(self._board, 4)
         self._player1.put_one(self._board, 3)
         print str(self._board)
-        with self.assertRaises(BoardWonError, self._player2.put_one, self._board, 3):
-            print "ok"
+        self.assertRaises(BoardWonError, self._player2.put_one, self._board, 3)
 
     def test_vertical_win_edge(self):
         self._player1.put_one(self._board, 1)
@@ -204,6 +203,6 @@ class test_ninarow_logic(unittest.TestCase):
 
 if "__main__" == __name__:
     print "Starting"
-    board = Board()
+    board = Board(2)
     player1 = Player(1)
     player1.put_one(board, 1)
