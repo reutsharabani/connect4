@@ -2,6 +2,7 @@ __author__ = 'reuts'
 import logging
 import os
 import unittest
+from random import choice
 
 LOGGER = logging.getLogger("ninarow")
 LOGGER.addHandler(logging.StreamHandler())
@@ -25,6 +26,10 @@ class LocationTakenError(Exception):
     pass
 
 
+class NotYourTurnError(Exception):
+    pass
+
+
 class Board(object):
 
     def __init__(self, number_of_players, rows=6, columns=7, goal=4):
@@ -43,6 +48,8 @@ class Board(object):
         self._players = []
         for player in range(1, number_of_players+1):
             self._players.append(Player(player))
+
+        self.current_player = choice(self._players)
 
         LOGGER.debug("%d X %x board initialized: %s" % (rows, columns, str(self._board)))
         # self.__print_board()
@@ -83,6 +90,8 @@ class Board(object):
                     return player
 
     def put_one(self, _column, _player):
+        if self.current_player != _player:
+            raise NotYourTurnError("This is player %s's turn! Not player %s's." % (self.current_player, _player))
         if self.__board_won():
             raise BoardWonError("Board already won by player: %s" % self.__board_won())
         for row in reversed(range(self._rows)):
@@ -91,7 +100,9 @@ class Board(object):
             LOGGER.debug("Trying to put %s in %d, %d - %s" % (_player, row, _column, _piece))
             if not _piece.is_taken():
                 _piece.owner = _player
-                return _player
+                next_player_index = (self._players.index(_player) + 1) % len(self._players)
+                self.current_player = self._players[next_player_index]
+                return row, _column
 
         raise LocationTakenError()
 
@@ -108,6 +119,7 @@ class Player(object):
         self.id = _id
 
     def put_one(self, _board, _location):
+        LOGGER.debug("Player %s trying to put a piece in %s" % (self, _location))
         return _board.put_one(_location, self)
 
     def get_color(self):
@@ -127,79 +139,76 @@ class BoardWonError(Exception):
     pass
 
 
-class test_ninarow_logic(unittest.TestCase):
+class TestNInARow(unittest.TestCase):
 
     def setUp(self):
         self._board = Board(2)
-        self._player1, self._player2 = self._board._players
-        print "player 1: %s" % self._player1
-        print "player 2: %s" % self._player2
+        self.starting_player, self.second_player = self._board._players
+        if not self.starting_player == self._board.current_player:
+            # switch in case we got the turns reversed
+            self.second_player = self.starting_player
+            self.starting_player = self._board.current_player
+
+        print "starting player : %s" % self.starting_player
+        print "second player : %s" % self.second_player
 
     def test_simple_put(self):
-        self._player1.put_one(self._board, 0)
-        assert self._board._board[-1][0].owner is self._player1, self._board._board[-1][0].owner
+        self.starting_player.put_one(self._board, 0)
+        assert self._board._board[-1][0].owner is self.starting_player, self._board._board[-1][0].owner
 
     def test_put_over(self):
-        self._player1.put_one(self._board, 0)
-        self._player1.put_one(self._board, 0)
-        assert self._board._board[-2][0].owner is self._player1, self._board._board[-2][0].owner
-
-    def test_simple_vertical_win(self):
-        self._player1.put_one(self._board, 0)
-        self._player1.put_one(self._board, 0)
-        self._player1.put_one(self._board, 0)
-        self._player1.put_one(self._board, 0)
-        self.assertRaises(BoardWonError, self._player1.put_one, self._board, 0)
+        self.starting_player.put_one(self._board, 0)
+        self.second_player.put_one(self._board, 1)
+        self.starting_player.put_one(self._board, 0)
+        assert self._board._board[-2][0].owner is self.starting_player, self._board._board[-2][0].owner
+        assert self._board._board[-1][1].owner is self.second_player, self._board._board[-1][1].owner
 
     def test_vertical_win_with_two_players(self):
-        self._player1.put_one(self._board, 0)
-        self._player2.put_one(self._board, 1)
-        self._player1.put_one(self._board, 0)
-        self._player2.put_one(self._board, 1)
-        self._player1.put_one(self._board, 0)
-        self._player2.put_one(self._board, 1)
-        self._player1.put_one(self._board, 0)
-        self.assertRaises(BoardWonError, self._player2.put_one, self._board, 0)
+        self.starting_player.put_one(self._board, 0)
+        self.second_player.put_one(self._board, 1)
+        self.starting_player.put_one(self._board, 0)
+        self.second_player.put_one(self._board, 1)
+        self.starting_player.put_one(self._board, 0)
+        self.second_player.put_one(self._board, 1)
+        self.starting_player.put_one(self._board, 0)
+        self.assertRaises(BoardWonError, self.second_player.put_one, self._board, 0)
 
-    def test_simple_horizontal_win(self):
-        self._player1.put_one(self._board, 0)
-        self._player1.put_one(self._board, 1)
-        self._player1.put_one(self._board, 2)
-        self._player1.put_one(self._board, 3)
-        self.assertRaises(BoardWonError, self._player2.put_one, self._board, 4)
+    def test_double_play_simple(self):
+        self.starting_player.put_one(self._board, 0)
+        self.assertRaises(NotYourTurnError, self.starting_player.put_one, self._board, 0)
 
     def test_simple_horizontal_win_2_players(self):
-        self._player1.put_one(self._board, 0)
-        self._player2.put_one(self._board, 0)
-        self._player1.put_one(self._board, 1)
-        self._player2.put_one(self._board, 1)
-        self._player1.put_one(self._board, 2)
-        self._player2.put_one(self._board, 2)
-        self._player1.put_one(self._board, 3)
-        self.assertRaises(BoardWonError, self._player2.put_one, self._board, 3)
+        self.starting_player.put_one(self._board, 0)
+        self.second_player.put_one(self._board, 0)
+        self.starting_player.put_one(self._board, 1)
+        self.second_player.put_one(self._board, 1)
+        self.starting_player.put_one(self._board, 2)
+        self.second_player.put_one(self._board, 2)
+        self.starting_player.put_one(self._board, 3)
+        self.assertRaises(BoardWonError, self.second_player.put_one, self._board, 3)
 
     def test_horizontal_win_edge(self):
-        self._player1.put_one(self._board, 6)
-        self._player2.put_one(self._board, 6)
-        self._player1.put_one(self._board, 5)
-        self._player2.put_one(self._board, 5)
-        self._player1.put_one(self._board, 4)
-        self._player2.put_one(self._board, 4)
-        self._player1.put_one(self._board, 3)
+        self.starting_player.put_one(self._board, 6)
+        self.second_player.put_one(self._board, 6)
+        self.starting_player.put_one(self._board, 5)
+        self.second_player.put_one(self._board, 5)
+        self.starting_player.put_one(self._board, 4)
+        self.second_player.put_one(self._board, 4)
+        self.starting_player.put_one(self._board, 3)
         print str(self._board)
-        self.assertRaises(BoardWonError, self._player2.put_one, self._board, 3)
+        self.assertRaises(BoardWonError, self.second_player.put_one, self._board, 3)
 
     def test_vertical_win_edge(self):
-        self._player1.put_one(self._board, 1)
-        self._player2.put_one(self._board, 1)
-        self._player1.put_one(self._board, 1)
-        self._player2.put_one(self._board, 2)
-        self._player1.put_one(self._board, 1)
-        self._player2.put_one(self._board, 3)
-        self._player1.put_one(self._board, 1)
-        self._player2.put_one(self._board, 4)
-        self._player1.put_one(self._board, 1)
-        self.assertRaises(BoardWonError, self._player2.put_one, self._board, 3)
+        self.starting_player.put_one(self._board, 1)
+        self.second_player.put_one(self._board, 1)
+        self.starting_player.put_one(self._board, 1)
+        self.second_player.put_one(self._board, 2)
+        self.starting_player.put_one(self._board, 1)
+        self.second_player.put_one(self._board, 3)
+        self.starting_player.put_one(self._board, 1)
+        self.second_player.put_one(self._board, 4)
+        self.starting_player.put_one(self._board, 1)
+        self.assertRaises(BoardWonError, self.second_player.put_one, self._board, 3)
 
 if "__main__" == __name__:
     print "Starting"
