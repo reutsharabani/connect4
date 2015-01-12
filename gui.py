@@ -26,6 +26,7 @@ class GameBoard(tk.Frame):
         # this binding will cause a refresh if the user interactively
         # changes the window size
         self.canvas.bind("<Configure>", self.resize_event)
+        self.canvas.bind("<Button-1>", self.put_one_event)
 
     def resize_event(self, event):
         x_size = int((event.width-1) / self.columns)
@@ -58,7 +59,11 @@ class GameBoard(tk.Frame):
         self.canvas.tag_raise("pieces")
         LOGGER.debug("redrew canvas")
 
+    def get_normalized_coords(self, event):
+        return event.x / self.cell_size , event.y / self.cell_size
 
+    def put_one_event(self, event):
+        self.put_one(self.get_normalized_coords(event)[0], self.board.current_player)
 # image comes from the silk icon set which is under a Creative Commons
 # license. For more information see http://www.famfamfam.com/lab/icons/silk/
 imagedata = '''
@@ -99,5 +104,5 @@ if __name__ == "__main__":
     logic_board = logic.Board(2)
     board = GameBoard(root, logic_board)
     board.pack(side="top", fill="both", expand="true", padx=4, pady=4)
-    threading.Thread(target=test, args=(board,)).start()
+    # threading.Thread(target=test, args=(board,)).start()
     root.mainloop()
