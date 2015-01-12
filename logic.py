@@ -80,7 +80,7 @@ class Board(object):
             row, col, player, left
         )
 
-    def __board_won(self):
+    def board_won(self):
         for row in range(self._rows):
             for col in range(self._columns):
                 player = self._board[row][col].owner
@@ -92,8 +92,8 @@ class Board(object):
     def put_one(self, _column, _player):
         if self.current_player != _player:
             raise NotYourTurnError("This is player %s's turn! Not player %s's." % (self.current_player, _player))
-        if self.__board_won():
-            raise BoardWonError("Board already won by player: %s" % self.__board_won())
+        if self.board_won():
+            raise BoardWonError("Board already won by player: %s" % self.board_won())
         for row in reversed(range(self._rows)):
             _piece = self._board[row][_column]
 
@@ -108,6 +108,9 @@ class Board(object):
 
     def get_piece(self, x, y):
         return self._board[x][y]
+
+    def get_players(self):
+        return self._players
 
     def __str__(self):
         return os.linesep.join(map(str, [map(lambda x: x.owner.id, self._board[row]) for row in range(self._rows)]))

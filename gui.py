@@ -28,6 +28,7 @@ class GameBoard(tk.Frame):
         self.canvas.bind("<Configure>", self.resize_event)
         self.canvas.bind("<Button-1>", self.put_one_event)
 
+        self.win_button = None
     def resize_event(self, event):
         x_size = int((event.width-1) / self.columns)
         y_size = int((event.height-1) / self.rows)
@@ -64,6 +65,20 @@ class GameBoard(tk.Frame):
 
     def put_one_event(self, event):
         self.put_one(self.get_normalized_coords(event)[0], self.board.current_player)
+        if self.board.board_won():
+            self.announce_winner(self.board.board_won())
+
+    def restart_game(self):
+        self.win_button.destroy()
+        self.board = logic.Board(len(self.board.get_players()))
+        self.refresh()
+    def announce_winner(self, player):
+        self.win_button = tk.Button(
+            self, text="Player %s wins!" % str(player), command=self.restart_game
+        )
+        self.win_button.pack()
+
+
 # image comes from the silk icon set which is under a Creative Commons
 # license. For more information see http://www.famfamfam.com/lab/icons/silk/
 imagedata = '''
