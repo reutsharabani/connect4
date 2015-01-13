@@ -8,7 +8,7 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, 'DESCRIPTION.rst'), encoding='utf-8') as f:
     long_description = f.read()
     setup(
-        name='sample',
+        name='ninarow',
         version='0.0.1',
         description='N-in-a-row Game',
         long_description='Simple implementation for the N-in-a-row (originally 4-in-a-row)'
@@ -21,9 +21,9 @@ with open(path.join(here, 'DESCRIPTION.rst'), encoding='utf-8') as f:
         license='MIT',
         # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
         classifiers=[
-            'Development Status :: 1 - Experimental',
-            'Intended Audience :: Young nephews',
-            'Topic :: Fun and Games:: Board Games',
+            'Development Status :: 2 - Pre-Alpha',
+            'Intended Audience :: End Users/Desktop',
+            'Topic :: Games/Entertainment :: Board Games',
             'License :: OSI Approved :: MIT License',
             'Programming Language :: Python :: 2',
             'Programming Language :: Python :: 2.6',
