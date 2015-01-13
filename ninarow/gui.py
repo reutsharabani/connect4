@@ -29,7 +29,7 @@ class GameBoard(Tk.Frame):
     def resize_event(self, event):
         x_size = int((event.width-1) / self.columns)
         y_size = int((event.height-1) / self.rows)
-        self.size = min(x_size, y_size)
+        self.cell_size = min(x_size, y_size)
         self.refresh()
 
     def put_one(self, column, player):
