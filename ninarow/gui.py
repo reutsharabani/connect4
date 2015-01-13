@@ -1,16 +1,14 @@
-import logic
-import Tkinter as tk
+import Tkinter as Tk
 import logging
-import time
-import threading
+from ninarow import logic
+
 LOGGER = logging.getLogger("ninarow GUI")
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.DEBUG)
 
 
-class GameBoard(tk.Frame):
+class GameBoard(Tk.Frame):
     def __init__(self, parent, board):
-        '''size is the size of a square, in pixels'''
 
         self.board = board
         self.rows, self.columns = board.get_size()
@@ -18,17 +16,16 @@ class GameBoard(tk.Frame):
         canvas_width = self.columns * self.cell_size
         canvas_height = self.rows * self.cell_size
 
-        tk.Frame.__init__(self, parent)
-        self.canvas = tk.Canvas(self, borderwidth=0, highlightthickness=0,
+        Tk.Frame.__init__(self, parent)
+        self.canvas = Tk.Canvas(self, borderwidth=0, highlightthickness=0,
                                 width=canvas_width, height=canvas_height, background="bisque")
         self.canvas.pack(side="top", fill="both", expand=True, padx=2, pady=2)
 
-        # this binding will cause a refresh if the user interactively
-        # changes the window size
         self.canvas.bind("<Configure>", self.resize_event)
         self.canvas.bind("<Button-1>", self.put_one_event)
 
         self.win_button = None
+
     def resize_event(self, event):
         x_size = int((event.width-1) / self.columns)
         y_size = int((event.height-1) / self.rows)
@@ -37,14 +34,11 @@ class GameBoard(tk.Frame):
 
     def put_one(self, column, player):
         try:
-            new_piece_location = self.board.put_one(column, player)
+            self.board.put_one(column, player)
         except logic.NotYourTurnError as e:
             raise e
         except logic.LocationTakenError as e:
             raise e
-        row, column = new_piece_location
-        x0, x1 = row * self.cell_size, row * (self.cell_size + 1)
-        y0, y1 = column * self.cell_size, column * (self.cell_size + 1)
         self.refresh()
 
     def refresh(self):
@@ -61,7 +55,7 @@ class GameBoard(tk.Frame):
         LOGGER.debug("redrew canvas")
 
     def get_normalized_coords(self, event):
-        return event.x / self.cell_size , event.y / self.cell_size
+        return event.x / self.cell_size, event.y / self.cell_size
 
     def put_one_event(self, event):
         self.put_one(self.get_normalized_coords(event)[0], self.board.current_player)
@@ -72,8 +66,9 @@ class GameBoard(tk.Frame):
         self.win_button.destroy()
         self.board = logic.Board(len(self.board.get_players()))
         self.refresh()
+
     def announce_winner(self, player):
-        self.win_button = tk.Button(
+        self.win_button = Tk.Button(
             self, text="Player %s wins!" % str(player), command=self.restart_game
         )
         self.win_button.pack()
@@ -104,20 +99,11 @@ imagedata = '''
 '''
 
 
-def test(board):
-    board.put_one(0, logic_board.current_player)
-    time.sleep(1)
-    board.put_one(0, logic_board.current_player)
-    time.sleep(1)
-    board.put_one(0, logic_board.current_player)
-    time.sleep(1)
-    board.put_one(0, logic_board.current_player)
-    time.sleep(1)
-
-if __name__ == "__main__":
-    root = tk.Tk()
+def main():
+    root = Tk.Tk()
     logic_board = logic.Board(2)
     board = GameBoard(root, logic_board)
     board.pack(side="top", fill="both", expand="true", padx=4, pady=4)
-    # threading.Thread(target=test, args=(board,)).start()
     root.mainloop()
+if __name__ == "__main__":
+    main()
