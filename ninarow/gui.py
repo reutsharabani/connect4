@@ -1,13 +1,121 @@
 import Tkinter as Tk
 import logging
 from ninarow import logic
+import Queue
+import time
+import threading
 
 LOGGER = logging.getLogger("ninarow GUI")
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.DEBUG)
 
 
+class IntSelectionWidget(Tk.Frame):
+    def __init__(self, parent, label="", lower_label="down", increase_label="up",
+                 start_val=0, min_val=None, max_val=None, max_error_message="maximal value reached",
+                 min_error_message="minimal value reached", on_error=None):
+        Tk.Frame.__init__(self, parent)
+        # TODO: type checking?
+        self.error_function = on_error
+        self.max_error_message = max_error_message
+        self.min_error_message = min_error_message
+        self.min_val = min_val
+        self.max_val = max_val
+        self.up_button = Tk.Button(master=self, text=increase_label, command=self.more)
+        self.down_button = Tk.Button(master=self, text=lower_label, command=self.less)
+        self.count = Tk.IntVar()
+        self.count.set(start_val)
+        self.players_count_label = Tk.Label(master=self, textvariable=self.count)
+
+        self.up_button.pack()
+        self.down_button.pack()
+        self.players_count_label.pack()
+
+    def more(self):
+        new_val = self.count.get() + 1
+        if self.max_val is not None and self.max_val < new_val:
+            self.__error(self.max_error_message)
+            return
+        self.count.set(new_val)
+
+    def less(self):
+        new_val = self.count.get() - 1
+        if self.min_val is not None and self.min_val > new_val:
+            self.__error(self.min_error_message)
+            return
+        self.count.set(new_val)
+
+    def __error(self, message):
+        if self.error_function:
+            self.error_function(message)
+
+
+class PreGameMenu(Tk.Frame):
+
+    def __init__(self, parent):
+        Tk.Frame.__init__(self, parent, width=400, height=400)
+
+        self.pack_propagate(0)
+
+        # run a thread to iterate the queue of messages and display them for a short time
+        self.message = Tk.StringVar()
+        self.message_label = Tk.Label(master=self, textvariable=self.message)
+        self.message_queue = Queue.Queue(2)
+        self.messenger_thread = threading.Thread(target=self.messenger)
+        self.messenger_thread.start()
+
+        self.players_widget = IntSelectionWidget(
+            self,
+            label="Number of players",
+            lower_label="Less players",
+            increase_label="More players",
+            start_val=2,
+            min_val=2,
+            max_val=6,
+            max_error_message="Maximal number of players is 6",
+            min_error_message="Minimal number of players is 2",
+            on_error=self.display_message
+        )
+        self.players_widget.pack()
+        # self.players_up_button = Tk.Button(master=self, text="More players!", command=self.more_players)
+        # self.players_down_button = Tk.Button(master=self, text="Less players!", command=self.less_players)
+        # self.players_count = Tk.IntVar()
+        # self.players_count.set(2)
+        # self.players_count_label = Tk.Label(master=self, textvariable=self.players_count)
+
+        # self.players_up_button.pack()
+        # self.players_down_button.pack()
+        # self.players_count_label.pack()
+
+    def more_players(self):
+        print self.players_count.set(self.players_count.get()+1)
+
+    def less_players(self):
+        current_count = self.players_count.get()
+        if not current_count > 2:
+            self.display_message("Players count has to be at least 2!")
+        else:
+            self.players_count.set(self.players_count.get()-1)
+
+    def display_message(self, message):
+        if self.message_queue.full():
+            # block for one element
+            self.message.set("STOP CLICKING STUFF!")
+        else:
+            self.message_queue.put(message)
+
+    def messenger(self):
+        while True:
+            message = self.message_queue.get()
+            if not message == "stop":
+                self.message.set(message)
+                self.message_label.pack()
+                time.sleep(2)
+                self.message.set("")
+
+
 class GameBoard(Tk.Frame):
+
     def __init__(self, parent, board):
 
         self.board = board
@@ -101,9 +209,9 @@ imagedata = '''
 
 def main():
     root = Tk.Tk()
-    logic_board = logic.Board(2)
-    board = GameBoard(root, logic_board)
-    board.pack(side="top", fill="both", expand="true", padx=4, pady=4)
+    frame = PreGameMenu(root)
+    frame.pack(side="top", fill="both", expand="true", padx=4, pady=4)
     root.mainloop()
 
-main()
+if "__main__" == __name__:
+    main()
