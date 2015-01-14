@@ -105,5 +105,5 @@ def main():
     board = GameBoard(root, logic_board)
     board.pack(side="top", fill="both", expand="true", padx=4, pady=4)
     root.mainloop()
-if __name__ == "__main__":
-    main()
+
+main()
