@@ -10,6 +10,19 @@ LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.DEBUG)
 
 
+def show_pre_game_menu(old, root):
+    if old:
+        old.destroy()
+    frame = PreGameMenu(root)
+    frame.pack(side="top", fill="both", expand="true", padx=4, pady=4)
+
+
+def start_game(old, root, logic_board):
+    old.message_queue.put("stop")
+    old.destroy()
+    game_board = GameBoard(root, logic_board)
+    game_board.pack(side="top", fill="both", expand="true", padx=4, pady=4)
+
 class IntSelectionWidget(Tk.Frame):
     def __init__(self, parent, label="", lower_label="down", increase_label="up",
                  start_val=0, min_val=None, max_val=None, max_error_message="maximal value reached",
@@ -30,6 +43,9 @@ class IntSelectionWidget(Tk.Frame):
         self.up_button.pack()
         self.down_button.pack()
         self.players_count_label.pack()
+
+    def get(self):
+        return self.count.get()
 
     def more(self):
         new_val = self.count.get() + 1
@@ -53,6 +69,11 @@ class IntSelectionWidget(Tk.Frame):
 class PreGameMenu(Tk.Frame):
 
     def __init__(self, parent):
+
+        self.parent = parent
+        #gracefully stop thread
+        # self.protocol("WM_DELETE_WINDOW", op"))
+
         Tk.Frame.__init__(self, parent, width=400, height=400)
 
         self.pack_propagate(0)
@@ -77,25 +98,63 @@ class PreGameMenu(Tk.Frame):
             on_error=self.display_message
         )
         self.players_widget.pack()
-        # self.players_up_button = Tk.Button(master=self, text="More players!", command=self.more_players)
-        # self.players_down_button = Tk.Button(master=self, text="Less players!", command=self.less_players)
-        # self.players_count = Tk.IntVar()
-        # self.players_count.set(2)
-        # self.players_count_label = Tk.Label(master=self, textvariable=self.players_count)
 
-        # self.players_up_button.pack()
-        # self.players_down_button.pack()
-        # self.players_count_label.pack()
+        self.rows_widget = IntSelectionWidget(
+            self,
+            label="Number of rows",
+            lower_label="Less rows",
+            increase_label="More rows",
+            start_val=6,
+            min_val=3,
+            max_val=15,
+            max_error_message="Maximal number of rows is 15",
+            min_error_message="Minimal number of rows is 3",
+            on_error=self.display_message
+        )
+        self.rows_widget.pack()
 
-    def more_players(self):
-        print self.players_count.set(self.players_count.get()+1)
+        self.columns_widget = IntSelectionWidget(
+            self,
+            label="Number of columns",
+            lower_label="Less columns",
+            increase_label="More columns",
+            start_val=7,
+            min_val=3,
+            max_val=15,
+            max_error_message="Maximal number of columns is 15",
+            min_error_message="Minimal number of columns is 3",
+            on_error=self.display_message
+        )
+        self.columns_widget.pack()
 
-    def less_players(self):
-        current_count = self.players_count.get()
-        if not current_count > 2:
-            self.display_message("Players count has to be at least 2!")
-        else:
-            self.players_count.set(self.players_count.get()-1)
+        self.goal_widget = IntSelectionWidget(
+            self,
+            label="Sequence goal",
+            lower_label="Less",
+            increase_label="More",
+            start_val=4,
+            min_val=3,
+            max_val=10,
+            max_error_message="Maximal goal is 10",
+            min_error_message="Minimal goal is 3",
+            on_error=self.display_message
+        )
+        self.goal_widget.pack()
+
+        self.start_button = Tk.Button(master=self, text="Start game!", command=lambda: start_game(
+            self,
+            parent,
+            logic.Board(
+                self.players_widget.get(),
+                rows=self.rows_widget.get(),
+                columns=self.columns_widget.get(),
+                goal=self.goal_widget.get())
+        ))
+        self.start_button.pack()
+
+    def destroy(self):
+        self.message_queue.put("stop")
+        Tk.Frame.destroy(self)
 
     def display_message(self, message):
         if self.message_queue.full():
@@ -112,11 +171,16 @@ class PreGameMenu(Tk.Frame):
                 self.message_label.pack()
                 time.sleep(2)
                 self.message.set("")
+            else:
+                # stop thread
+                LOGGER.debug("thread stopped")
+                break
 
 
 class GameBoard(Tk.Frame):
 
     def __init__(self, parent, board):
+        self.parent = parent
 
         self.board = board
         self.rows, self.columns = board.get_size()
@@ -171,9 +235,7 @@ class GameBoard(Tk.Frame):
             self.announce_winner(self.board.board_won())
 
     def restart_game(self):
-        self.win_button.destroy()
-        self.board = logic.Board(len(self.board.get_players()))
-        self.refresh()
+        show_pre_game_menu(self, self.parent)
 
     def announce_winner(self, player):
         self.win_button = Tk.Button(
@@ -209,8 +271,8 @@ imagedata = '''
 
 def main():
     root = Tk.Tk()
-    frame = PreGameMenu(root)
-    frame.pack(side="top", fill="both", expand="true", padx=4, pady=4)
+    root.protocol("WM_DELETE_WINDOW", root.destroy)
+    show_pre_game_menu(None, root)
     root.mainloop()
 
 if "__main__" == __name__:
