@@ -188,7 +188,14 @@ class GameBoard(Tk.Frame):
         self.canvas.bind("<Configure>", self.resize_event)
         self.canvas.bind("<Button-1>", self.put_one_event)
 
+        self.undo_button = Tk.Button(self, fg="red", bg="black", command=self.undo)
+        self.undo_button.pack()
+
         self.win_button = None
+
+    def undo(self):
+        self.board.undo()
+        self.refresh()
 
     def resize_event(self, event):
         x_size = int((event.width-1) / self.columns)
@@ -214,7 +221,7 @@ class GameBoard(Tk.Frame):
                 y1 = (row * self.cell_size)
                 x2 = x1 + self.cell_size
                 y2 = y1 + self.cell_size
-                color = self.board.get_piece(row, col).owner.get_color()
+                color = (self.board.get_piece(row, col) and self.board.get_piece(row, col).owner.get_color()) or "white"
                 self.canvas.create_oval(x1, y1, x2, y2, outline="black", fill=color, tags="pieces")
         self.canvas.tag_raise("pieces")
         LOGGER.debug("redrew canvas")

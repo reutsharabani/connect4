@@ -11,12 +11,9 @@ LOGGER.setLevel(logging.DEBUG)
 
 class Piece(object):
 
-    def __init__(self, x, y):
-        self.owner = None
+    def __init__(self, x, y, owner):
+        self.owner = owner
         self.location = (x, y,)
-
-    def is_taken(self):
-        return self.owner.id != -1
 
     def __str__(self):
         return "[Piece at %s taken by %s]" % (self.location, self.owner)
@@ -33,17 +30,12 @@ class NotYourTurnError(Exception):
 class Board(object):
 
     def __init__(self, number_of_players, rows=6, columns=7, goal=4):
+        self.moves = list()
         self._rows = rows
         self._columns = columns
         self._goal = goal
 
         self._board = [[None for _ in range(columns)] for _ in range(rows)]
-        dummy_player = Player(-1)
-        for row in range(rows):
-            for col in range(columns):
-                piece = Piece(row, col)
-                self._board[row][col] = piece
-                piece.owner = dummy_player
 
         self._players = []
         for player in range(1, number_of_players+1):
@@ -52,24 +44,38 @@ class Board(object):
         self.current_player = choice(self._players)
 
         LOGGER.debug("%d X %x board initialized: %s" % (rows, columns, str(self._board)))
-        # self.__print_board()
 
     def get_size(self):
         return self._rows, self._columns
 
     def __win_by_row_from_location(self, row, col, player, left):
         try:
+
             if left == 0:
                 return True
-            return self._board[row][col].owner == player and self.__win_by_row_from_location(row+1, col, player, left-1)
+
+            piece = self._board[row][col]
+            if not piece:
+                return False
+
+            return piece.owner == player and self.__win_by_row_from_location(row+1, col, player, left-1)
+
         except IndexError:
             return False
 
     def __win_by_col_from_location(self, row, col, player, left):
         try:
+
             if left == 0:
                 return True
-            return self._board[row][col].owner == player and self.__win_by_col_from_location(row, col+1, player, left-1)
+
+            piece = self._board[row][col]
+
+            if not piece:
+                return False
+
+            return piece.owner == player and self.__win_by_col_from_location(row, col+1, player, left-1)
+
         except IndexError:
             return False
 
@@ -83,11 +89,18 @@ class Board(object):
     def board_won(self):
         for row in range(self._rows):
             for col in range(self._columns):
-                player = self._board[row][col].owner
+                piece = self._board[row][col]
+                if not piece:
+                    continue
+                player = piece.owner
                 if player.id == -1:
                     continue
                 if self.__win_from_location(row, col, player, self._goal):
                     return player
+
+    def move_turn_to_next_player(self):
+        next_player_index = (self._players.index(self.current_player) + 1) % len(self._players)
+        self.current_player = self._players[next_player_index]
 
     def put_one(self, _column, _player):
         if self.current_player != _player:
@@ -98,13 +111,20 @@ class Board(object):
             _piece = self._board[row][_column]
 
             LOGGER.debug("Trying to put %s in %d, %d - %s" % (_player, row, _column, _piece))
-            if not _piece.is_taken():
-                _piece.owner = _player
-                next_player_index = (self._players.index(_player) + 1) % len(self._players)
-                self.current_player = self._players[next_player_index]
+            if not _piece:
+                self._board[row][_column] = Piece(row, _column, _player)
+                self.move_turn_to_next_player()
+                self.moves.append((self.current_player, row, _column,))
                 return row, _column
 
         raise LocationTakenError()
+
+    def undo(self):
+        if len(self.moves) > 0:
+            player, row, column = self.moves.pop()
+            print row, column
+            self._board[row][column] = None
+            self.move_turn_to_next_player()
 
     def get_piece(self, x, y):
         return self._board[x][y]
@@ -113,7 +133,7 @@ class Board(object):
         return self._players
 
     def __str__(self):
-        return os.linesep.join(map(str, [map(lambda x: x.owner.id, self._board[row]) for row in range(self._rows)]))
+        return os.linesep.join(map(str, [map(lambda x: (x and x.owner.id) or -1, self._board[row]) for row in range(self._rows)]))
 
 
 class Player(object):
