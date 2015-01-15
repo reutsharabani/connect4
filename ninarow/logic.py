@@ -27,6 +27,10 @@ class NotYourTurnError(Exception):
     pass
 
 
+class NoMovesPlayedError(Exception):
+    pass
+
+
 class Board(object):
 
     def __init__(self, number_of_players, rows=6, columns=7, goal=4):
@@ -122,9 +126,11 @@ class Board(object):
     def undo(self):
         if len(self.moves) > 0:
             player, row, column = self.moves.pop()
-            print row, column
             self._board[row][column] = None
             self.move_turn_to_next_player()
+            return row, column
+        else:
+            raise NoMovesPlayedError("No moves have been played yet!")
 
     def get_piece(self, x, y):
         return self._board[x][y]

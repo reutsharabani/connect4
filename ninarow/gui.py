@@ -188,13 +188,20 @@ class GameBoard(Tk.Frame):
         self.canvas.bind("<Configure>", self.resize_event)
         self.canvas.bind("<Button-1>", self.put_one_event)
 
-        self.undo_button = Tk.Button(self, fg="red", bg="black", command=self.undo)
+        self.undo_button = Tk.Button(self, text="Undo", fg="red", bg="black", command=self.undo)
         self.undo_button.pack()
 
         self.win_button = None
 
     def undo(self):
-        self.board.undo()
+        player = self.board.current_player
+        try:
+            removed = self.board.undo()
+        except logic.NoMovesPlayedError:
+            self.player_indicator.set("Nothing happened, so... Undoing nothing.")
+            self.refresh()
+            return
+        self.player_indicator.set("%s cheats! removes piece from %s" % (player.get_color(), removed))
         self.refresh()
 
     def resize_event(self, event):
