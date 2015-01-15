@@ -131,7 +131,9 @@ class Player(object):
             1: "blue",
             2: "yellow",
             3: "green",
-            4: "red"
+            4: "red",
+            5: "purple",
+            6: "orange"
         }[self.id]
 
     def __str__(self):
