@@ -141,6 +141,7 @@ class PreGameMenu(Tk.Frame):
                 columns=self.columns_widget.get(),
                 goal=self.goal_widget.get())
         )
+
     def destroy(self):
         self.message_queue.put("stop")
         Tk.Frame.destroy(self)
@@ -194,7 +195,8 @@ class GameBoard(Tk.Frame):
         self.win_button = None
 
     def undo(self):
-        player = self.board.current_player
+        if self.win_button:
+            self.win_button.destroy()
         try:
             removed = self.board.undo()
         except logic.NoMovesPlayedError:
@@ -216,6 +218,7 @@ class GameBoard(Tk.Frame):
         except logic.NotYourTurnError as e:
             raise e
         except logic.LocationTakenError as e:
+            self.player_indicator.set("Column already full!")
             raise e
         self.refresh()
 
@@ -243,14 +246,14 @@ class GameBoard(Tk.Frame):
         self.put_one(column, player)
         if self.board.board_won():
             self.announce_winner(self.board.board_won())
-            self.player_indicator.set("%s player won the game!" % self.board.get_winner())
+            self.player_indicator.set("%s player won the game!" % self.board.board_won().get_color())
 
     def restart_game(self):
         show_pre_game_menu(self, self.parent)
 
     def announce_winner(self, player):
         self.win_button = Tk.Button(
-            self, text="Player %s wins!" % str(player), command=self.restart_game
+            self, text="Player %s wins!" % str(player.get_color()), command=self.restart_game
         )
         self.win_button.pack()
 
