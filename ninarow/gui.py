@@ -201,7 +201,7 @@ class GameBoard(Tk.Frame):
             self.player_indicator.set("Nothing happened, so... Undoing nothing.")
             self.refresh()
             return
-        self.player_indicator.set("%s cheats! removes piece from %s" % (player.get_color(), removed))
+        self.player_indicator.set("%s cheats! removes piece from %s" % (self.board.current_player.get_color(), removed))
         self.refresh()
 
     def resize_event(self, event):

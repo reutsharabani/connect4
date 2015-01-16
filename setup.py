@@ -6,7 +6,7 @@ here = path.abspath(path.dirname(__file__))
 # Get the long description from the relevant file
 setup(
     name='ninarow',
-    version='0.0.1',
+    version='0.0.2',
     description='N-in-a-row Game',
     long_description='Simple implementation for the N-in-a-row (originally 4-in-a-row)'
                      ' classic game using tkinter GUI',

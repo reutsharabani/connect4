@@ -103,7 +103,13 @@ class Board(object):
                     return player
 
     def move_turn_to_next_player(self):
-        next_player_index = (self._players.index(self.current_player) + 1) % len(self._players)
+        self.skip_players(1)
+
+    def move_turn_to_previous_player(self):
+        self.skip_players(-1)
+
+    def skip_players(self, step):
+        next_player_index = (self._players.index(self.current_player) + step) % len(self._players)
         self.current_player = self._players[next_player_index]
 
     def put_one(self, _column, _player):
@@ -127,7 +133,7 @@ class Board(object):
         if len(self.moves) > 0:
             player, row, column = self.moves.pop()
             self._board[row][column] = None
-            self.move_turn_to_next_player()
+            self.move_turn_to_previous_player()
             return row, column
         else:
             raise NoMovesPlayedError("No moves have been played yet!")
