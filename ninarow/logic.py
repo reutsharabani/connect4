@@ -55,7 +55,7 @@ class Board(object):
     def get_size(self):
         return self.rows, self.columns
 
-    def __win_by_row_from_location(self, row, col, player, left):
+    def __win_from_location_with_direction(self, row, col, player, left, direction):
         try:
 
             if left == 0:
@@ -64,37 +64,35 @@ class Board(object):
             piece = self.board[row][col]
             if not piece:
                 return False
-
-            return piece.owner == player and self.__win_by_row_from_location(row+1, col, player, left-1)
+            new_row = row + direction[0]
+            new_col = col + direction[1]
+            return piece.owner == player and self.__win_from_location_with_direction(
+                new_row, new_col, player, left-1, direction
+            )
 
         except IndexError:
             return False
+
+    def __win_by_row_from_location(self, row, col, player, left):
+        return self.__win_from_location_with_direction(row, col, player, left, (1, 0))
 
     def __win_by_col_from_location(self, row, col, player, left):
-        try:
+        return self.__win_from_location_with_direction(row, col, player, left, (0, 1))
 
-            if left == 0:
-                return True
+    def __win_by_diagonal_left_down_from_location(self, row, col, player, left):
+        return self.__win_from_location_with_direction(row, col, player, left, (1, 1))
 
-            piece = self.board[row][col]
-
-            if not piece:
-                return False
-
-            return piece.owner == player and self.__win_by_col_from_location(row, col+1, player, left-1)
-
-        except IndexError:
-            return False
-
-    def __win_by_diagonal_from_location(self, row, col, player, left):
-        pass
+    def __win_by_diagonal_left_up_from_location(self, row, col, player, left):
+        return self.__win_from_location_with_direction(row, col, player, left, (1, -1))
 
     def __win_from_location(self, row, col, player, left):
         return self.__win_by_col_from_location(
             row, col, player, left
         ) or self.__win_by_row_from_location(
             row, col, player, left
-        ) or self.__win_by_diagonal_from_location(
+        ) or self.__win_by_diagonal_left_down_from_location(
+            row, col, player, left
+        ) or self.__win_by_diagonal_left_up_from_location(
             row, col, player, left
         )
 
@@ -207,94 +205,127 @@ class Player(object):
     # def play(self, _board, move):
     #     return board.simulate_move(move)
 
-    def min_max(self, _board, heuristic=None, depth=4):
-        tree = Tree({'moves': [], 'board':_board})
+    def min_max(self, _board, heuristic=None, depth=5):
+        tree = Tree({'moves': [], 'board': _board})
 
         if not heuristic:
-            heuristic = self.naive_heuristic
+            heuristic = self.open_ended_run_heuristic
 
         def expand(data):
             brd = data['board']
             return [{'move': move, 'board': brd.simulate_move(move)} for move in brd.valid_moves_iterator]
 
-        for level in xrange(depth):
-            # leaves list is altered in expansion, so copy before iteration
-            for leaf in tree.leaves[:]:
-                for data in expand(leaf.data):
-                    leaf.add_child(data)
+        pos_inf = 999999999
+        neg_inf = -999999999
 
-        def __minmax(node, depth, max_turn):
-            if depth == 0 or not node.children:
+        def __min_max_prunning(node, _depth, alpha=neg_inf, beta=pos_inf, max_turn=True):
+            # print "depth: %d" % _depth
+            if _depth == 0:
+                return heuristic(node.data)
+            new_data = expand(node.data)
+            if new_data:
+                # print "expanding"
+                for data in new_data:
+                    node.add_child(data)
+            else:
                 return heuristic(node.data)
             if max_turn:
-                # best_value = -1000000
-                return max(map(lambda c: __minmax(c, depth-1, False), node.children), key=lambda x: x['score'])
+                best_value = {'score': neg_inf}
+                for child in node.children:
+                    best_value = max(
+                        [best_value, __min_max_prunning(child, _depth-1, alpha, beta, False)],
+                        key=lambda x: x['score']
+                    )
+                    alpha = max(alpha, best_value['score'])
+                    if beta <= alpha:
+                        # print "prunning occurred a:%d, b:%d" % (alpha, beta)
+                        break
+                return best_value
             else:
-                # best_value = 1000000
-                return min(map(lambda c: __minmax(c, depth-1, True), node.children), key=lambda x: x['score'])
+                best_value = {'score': pos_inf}
+                for child in node.children:
+                    best_value = min(
+                        [best_value, __min_max_prunning(child, _depth-1, alpha, beta, True)],
+                        key=lambda x: x['score']
+                    )
+                    beta = min(beta, best_value['score'])
+                    if beta <= alpha:
+                        break
+                return best_value
 
-        return __minmax(tree, 5, True)
+        val = __min_max_prunning(tree, depth)
+        # print val
+        return val
 
     def naive_heuristic(self, state):
         _board = state['board']
         res = dict(state)
         if _board.board_won():
             if _board.board_won() == self:
-                res.update({'score': 9999})
+                res.update({'score': 999999})
                 return res
             else:
-                res.update({'score': -9999})
+                res.update({'score': -999999})
                 return res
         res.update({'score': 1})
         return res
 
-    def find_move(self, _board):
-        state_queue = Queue.Queue(10000)
-        # put initial moves in queue
-        print list(_board.valid_moves_iterator)
-        for move in _board.valid_moves_iterator:
-            state_queue.put(([move], _board.simulate_move(move),))
-        return self.__find_move(state_queue)
+    def open_ended_run_heuristic(self, state):
+        _board = state['board']
+        res = dict(state)
+        if _board.board_won():
+            if _board.board_won() == self:
+                res.update({'score': 999999})
+                return res
+            else:
+                res.update({'score': -999999})
+                return res
 
-    def __find_move(self, queue, heuristic=None):
-        if not heuristic:
-            heuristic = self.score_state
-        # bfs
-        offers = []
-        while not (queue.full() or queue.empty()):
-            print "queue size: %d" % queue.qsize()
-            state = queue.get()
-            if state[1].board_won():
-                offers.append(state)
-                continue
-            expanded = False
-            for move in state[1].valid_moves_iterator:
-                expanded = True
-                if not queue.full():
-                    queue.put((state[0] + [move], state[1].simulate_move(move)))
+        def score(_row, _col, p, running_score=1, direction=None):
+            directions = [
+                (0, 1),
+                (0, -1),
+                (1, 0),
+                (1, 1),
+                (1, -1),
+                (-1, 0),
+                (-1, 1),
+                (-1, -1),
+            ]
+            try:
+                piece = _board.board[_row][_col]
+            except IndexError:
+                return 0
+            if not piece:
+                return running_score
+            if not piece.owner is p:
+                if piece.owner is None:
+                    return running_score
                 else:
-                    offers.append(state)
-            if not expanded:
-                offers.append(state)
-
-        while not queue.empty():
-            # grab all unfinished state expansions
-            offers.append(queue.get())
-        return max(offers, key=heuristic)[0][0]
-
-    def score_state(self, state):
-        # our heuristic will base on longest unblocked run in board
-        # won board gets unreasonable bonus to be selected or avoided at all costs
-        _board = state[1]
-        winner = _board.board_won()
-        if winner:
-            if winner != self:
-                print "found losing move!"
-                return -999999
-            if winner == self:
-                print "found winning move!"
-                return 999999
-        return 0
+                    return 0
+            if piece.owner is p:
+                if not direction:
+                    # start all directions
+                    return running_score * sum(map(
+                        lambda x: running_score * score(_row+x[0], _col+x[1], p, running_score+10, x), directions
+                    ))
+                else:
+                    # use direction set before
+                    return running_score * score(_row+direction[0], _col+direction[1], p, running_score+10, direction)
+        # we recursively value pieces located with option to continue
+        my_score = 0
+        his_score = 0
+        players = _board.players[:]
+        players.remove(self)
+        him = players[0]
+        for row in range(_board.rows):
+            for col in range(_board.columns):
+                ms = score(row, col, self)
+                hs = score(row, col, him)
+                my_score += ms
+                his_score += hs
+        res['score'] = my_score - his_score
+        return res
 
 
 class BoardWonError(Exception):
@@ -357,7 +388,6 @@ class TestNInARow(unittest.TestCase):
         self.starting_player.put_one(self._board, 4)
         self.second_player.put_one(self._board, 4)
         self.starting_player.put_one(self._board, 3)
-        print str(self._board)
         self.assertRaises(BoardWonError, self.second_player.put_one, self._board, 3)
 
     def test_vertical_win_edge(self):
@@ -373,6 +403,5 @@ class TestNInARow(unittest.TestCase):
         self.assertRaises(BoardWonError, self.second_player.put_one, self._board, 3)
 
 if "__main__" == __name__:
-    print "Starting"
-    board = Board(6, rows=5, columns=5, goal=3)
+    board = Board(2, rows=7, columns=7, goal=3)
     print board.current_player.min_max(board)

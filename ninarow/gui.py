@@ -14,6 +14,16 @@ def show_pre_game_menu(old, root):
     if old:
         old.destroy()
     frame = PreGameMenu(root)
+
+    # def destroy(_root, _frame):
+    #     def x():
+    #         print "called destroy"
+    #         _frame.destroy()
+    #         _root.destroy()
+    #     return x
+    # root.protocol("WM_DELETE_WINDOW", destroy(root, frame))
+
+    root.protocol("WM_DELETE_WINDOW", root.destroy)
     frame.pack(side="top", fill="both", expand="true", padx=4, pady=4)
 
 
@@ -191,6 +201,9 @@ class GameBoard(Tk.Frame):
 
         self.undo_button = Tk.Button(self, text="Undo", fg="red", bg="black", command=self.undo)
         self.undo_button.pack()
+        self.tip = Tk.StringVar(self)
+        self.tip_label = Tk.Label(self, background="bisque", textvariable=self.tip)
+        self.tip_label.pack()
 
         self.win_button = None
 
@@ -234,6 +247,14 @@ class GameBoard(Tk.Frame):
                 color = (self.board.get_piece(row, col) and self.board.get_piece(row, col).owner.get_color()) or "white"
                 self.canvas.create_oval(x1, y1, x2, y2, outline="black", fill=color, tags="pieces")
         self.canvas.tag_raise("pieces")
+        if not self.board.board_won():
+            self.tip.set(self.board.current_player.min_max(self.board)['move'])
+        else:
+            self.tip.set("Game over.")
+        # estimated scores:
+        print "scores: %s" % self.board.players
+        for player in self.board.players:
+            print "%s: %s" % (player.get_color(), player.open_ended_run_heuristic({'board': self.board}))
         LOGGER.debug("redrew canvas")
 
     def get_normalized_coords(self, event):
@@ -253,41 +274,17 @@ class GameBoard(Tk.Frame):
 
     def announce_winner(self, player):
         self.win_button = Tk.Button(
-            self, text="Player %s wins!" % str(player.get_color()), command=self.restart_game
+            self, text="%s player wins!" % str(player.get_color()), command=self.restart_game
         )
         self.win_button.pack()
 
 
-# image comes from the silk icon set which is under a Creative Commons
-# license. For more information see http://www.famfamfam.com/lab/icons/silk/
-imagedata = '''
-    R0lGODlhEAAQAOeSAKx7Fqx8F61/G62CILCJKriIHM+HALKNMNCIANKKANOMALuRK7WOVLWPV9eR
-    ANiSANuXAN2ZAN6aAN+bAOCcAOKeANCjKOShANKnK+imAOyrAN6qSNaxPfCwAOKyJOKyJvKyANW0
-    R/S1APW2APW3APa4APe5APm7APm8APq8AO28Ke29LO2/LO2/L+7BM+7BNO6+Re7CMu7BOe7DNPHA
-    P+/FOO/FO+jGS+/FQO/GO/DHPOjBdfDIPPDJQPDISPDKQPDKRPDIUPHLQ/HLRerMV/HMR/LNSOvH
-    fvLOS/rNP/LPTvLOVe/LdfPRUfPRU/PSU/LPaPPTVPPUVfTUVvLPe/LScPTWWfTXW/TXXPTXX/XY
-    Xu/SkvXZYPfVdfXaY/TYcfXaZPXaZvbWfvTYe/XbbvHWl/bdaPbeavvadffea/bebvffbfbdfPvb
-    e/fgb/Pam/fgcvfgePTbnfbcl/bfivfjdvfjePbemfjelPXeoPjkePbfmvffnvbfofjlgffjkvfh
-    nvjio/nnhvfjovjmlvzlmvrmpvrrmfzpp/zqq/vqr/zssvvvp/vvqfvvuPvvuvvwvfzzwP//////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////yH+FUNyZWF0ZWQgd2l0aCBU
-    aGUgR0lNUAAh+QQBCgD/ACwAAAAAEAAQAAAIzAD/CRxIsKDBfydMlBhxcGAKNIkgPTLUpcPBJIUa
-    +VEThswfPDQKokB0yE4aMFiiOPnCJ8PAE20Y6VnTQMsUBkWAjKFyQaCJRYLcmOFipYmRHzV89Kkg
-    kESkOme8XHmCREiOGC/2TBAowhGcAyGkKBnCwwKAFnciCAShKA4RAhyK9MAQwIMMOQ8EdhBDKMuN
-    BQMEFPigAsoRBQM1BGLjRIiOGSxWBCmToCCMOXSW2HCBo8qWDQcvMMkzCNCbHQga/qMgAYIDBQZU
-    yxYYEAA7
-'''
-
-
 def main():
     root = Tk.Tk()
-    root.protocol("WM_DELETE_WINDOW", root.destroy)
     show_pre_game_menu(None, root)
     root.mainloop()
 
-if "__main__" == __name__:
-    main()
+# if "__main__" == __name__:
+#     print "main"
+#     main()
+#     print "maindone"
