@@ -1,15 +1,17 @@
 __author__ = 'reuts'
 import logging
-import Queue
 import os
 import unittest
 from random import choice
-from collections import defaultdict
 from tree import Tree
+import time
 
 LOGGER = logging.getLogger("ninarow")
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.INFO)
+
+POS_INF = 9999999999
+NEG_INF = -9999999999
 
 
 class Piece(object):
@@ -56,6 +58,10 @@ class Board(object):
         return self.rows, self.columns
 
     def __win_from_location_with_direction(self, row, col, player, left, direction):
+        if not 0 <= row < self.rows:
+            return False
+        if not 0 <= col < self.columns:
+            return False
         try:
 
             if left == 0:
@@ -152,7 +158,7 @@ class Board(object):
         return self.players
 
     def __str__(self):
-        return os.linesep.join(map(str, [map(lambda x: (x and x.owner.id) or -1, self.board[row]) for row in range(self.rows)]))
+        return os.linesep.join(map(str, [map(lambda x: (x and "%d" % x.owner.id) or 'x', self.board[row]) for row in range(self.rows)]))
 
     @property
     def valid_moves_iterator(self):
@@ -205,20 +211,23 @@ class Player(object):
     # def play(self, _board, move):
     #     return board.simulate_move(move)
 
-    def min_max(self, _board, heuristic=None, depth=5):
+    def min_max(self, _board, heuristic=None, depth=15):
         tree = Tree({'moves': [], 'board': _board})
 
         if not heuristic:
             heuristic = self.open_ended_run_heuristic
 
+        print "moves:", list(_board.valid_moves_iterator)
+        # time.sleep(2)
+
         def expand(data):
             brd = data['board']
             return [{'move': move, 'board': brd.simulate_move(move)} for move in brd.valid_moves_iterator]
 
-        pos_inf = 999999999
-        neg_inf = -999999999
+        pos_inf = POS_INF
+        neg_inf = NEG_INF
 
-        def __min_max_prunning(node, _depth, alpha=neg_inf, beta=pos_inf, max_turn=True):
+        def __min_max_prunning(node, _depth, alpha=NEG_INF, beta=POS_INF, max_turn=True):
             # print "depth: %d" % _depth
             if _depth == 0:
                 return heuristic(node.data)
@@ -228,12 +237,20 @@ class Player(object):
                 for data in new_data:
                     node.add_child(data)
             else:
-                return heuristic(node.data)
+                print "reached terminal node:"
+                print node.data['board']
+                node_score = heuristic(node.data)
+                print "Terminal node score:"
+                print node_score
+                return node_score
             if max_turn:
-                best_value = {'score': neg_inf}
+                best_value = {'score': neg_inf-1}
                 for child in node.children:
+                    states = [best_value, __min_max_prunning(child, _depth-1, alpha, beta, False)]
+                    print "selecting max from %d state:" % len(states)
+                    print os.linesep.join(map(str, states))
                     best_value = max(
-                        [best_value, __min_max_prunning(child, _depth-1, alpha, beta, False)],
+                        states,
                         key=lambda x: x['score']
                     )
                     alpha = max(alpha, best_value['score'])
@@ -242,10 +259,13 @@ class Player(object):
                         break
                 return best_value
             else:
-                best_value = {'score': pos_inf}
+                best_value = {'score': pos_inf+1}
                 for child in node.children:
+                    states = [best_value, __min_max_prunning(child, _depth-1, alpha, beta, True)]
+                    print "selecting min from %d state:" % len(states)
+                    print os.linesep.join(map(str, states))
                     best_value = min(
-                        [best_value, __min_max_prunning(child, _depth-1, alpha, beta, True)],
+                        states,
                         key=lambda x: x['score']
                     )
                     beta = min(beta, best_value['score'])
@@ -254,7 +274,7 @@ class Player(object):
                 return best_value
 
         val = __min_max_prunning(tree, depth)
-        # print val
+        print "recommended for %s: %s" % (self, val)
         return val
 
     def naive_heuristic(self, state):
@@ -262,10 +282,10 @@ class Player(object):
         res = dict(state)
         if _board.board_won():
             if _board.board_won() == self:
-                res.update({'score': 999999})
+                res.update({'score': POS_INF})
                 return res
             else:
-                res.update({'score': -999999})
+                res.update({'score': NEG_INF})
                 return res
         res.update({'score': 1})
         return res
@@ -275,13 +295,17 @@ class Player(object):
         res = dict(state)
         if _board.board_won():
             if _board.board_won() == self:
-                res.update({'score': 999999})
+                res.update({'score': POS_INF})
                 return res
             else:
-                res.update({'score': -999999})
+                res.update({'score': NEG_INF})
                 return res
 
         def score(_row, _col, p, running_score=1, direction=None):
+            if not 0 <= _row < len(_board.board):
+                return 0
+            if not 0 <= _col < len(_board.board[_row]):
+                return 0
             directions = [
                 (0, 1),
                 (0, -1),
@@ -292,26 +316,24 @@ class Player(object):
                 (-1, 1),
                 (-1, -1),
             ]
-            try:
-                piece = _board.board[_row][_col]
-            except IndexError:
-                return 0
+            piece = _board.board[_row][_col]
             if not piece:
                 return running_score
             if not piece.owner is p:
-                if piece.owner is None:
-                    return running_score
-                else:
+                    # location owned by someone else
                     return 0
             if piece.owner is p:
+                # this is our piece, expand
                 if not direction:
                     # start all directions
-                    return running_score * sum(map(
-                        lambda x: running_score * score(_row+x[0], _col+x[1], p, running_score+10, x), directions
-                    ))
+                    score_map = map(
+                        lambda x: running_score * score(_row+x[0], _col+x[1], p, running_score+1, x), directions
+                    )
+                    return sum(score_map)
                 else:
-                    # use direction set before
-                    return running_score * score(_row+direction[0], _col+direction[1], p, running_score+10, direction)
+                    # use direction set in previous frame
+                    return running_score * score(_row+direction[0], _col+direction[1], p, running_score+1, direction)
+            assert False
         # we recursively value pieces located with option to continue
         my_score = 0
         his_score = 0
@@ -319,11 +341,14 @@ class Player(object):
         players.remove(self)
         him = players[0]
         for row in range(_board.rows):
+            # s = ""
             for col in range(_board.columns):
                 ms = score(row, col, self)
                 hs = score(row, col, him)
                 my_score += ms
                 his_score += hs
+                # s += "%d|%d," % (ms, hs)
+            # print s
         res['score'] = my_score - his_score
         return res
 
