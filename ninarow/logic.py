@@ -4,7 +4,6 @@ import os
 import unittest
 from random import choice
 from tree import Tree
-import time
 
 LOGGER = logging.getLogger("ninarow")
 LOGGER.addHandler(logging.StreamHandler())
@@ -38,7 +37,7 @@ class NoMovesPlayedError(Exception):
 
 class Board(object):
 
-    def __init__(self, number_of_players, rows=6, columns=7, goal=4):
+    def __init__(self, number_of_players, rows=6, columns=7, goal=24):
         self.moves = list()
         self.rows = rows
         self.columns = columns
@@ -58,26 +57,24 @@ class Board(object):
         return self.rows, self.columns
 
     def __win_from_location_with_direction(self, row, col, player, left, direction):
+
+        if left == 0:
+            return True
+
         if not 0 <= row < self.rows:
             return False
+
         if not 0 <= col < self.columns:
             return False
-        try:
 
-            if left == 0:
-                return True
-
-            piece = self.board[row][col]
-            if not piece:
-                return False
-            new_row = row + direction[0]
-            new_col = col + direction[1]
-            return piece.owner == player and self.__win_from_location_with_direction(
-                new_row, new_col, player, left-1, direction
-            )
-
-        except IndexError:
+        piece = self.board[row][col]
+        if not piece:
             return False
+        new_row = row + direction[0]
+        new_col = col + direction[1]
+        return piece.owner == player and self.__win_from_location_with_direction(
+            new_row, new_col, player, left-1, direction
+        )
 
     def __win_by_row_from_location(self, row, col, player, left):
         return self.__win_from_location_with_direction(row, col, player, left, (1, 0))
@@ -211,59 +208,65 @@ class Player(object):
     # def play(self, _board, move):
     #     return board.simulate_move(move)
 
-    def min_max(self, _board, heuristic=None, depth=15):
+    def min_max(self, _board, heuristic=None, depth=4):
         tree = Tree({'moves': [], 'board': _board})
 
         if not heuristic:
             heuristic = self.open_ended_run_heuristic
 
-        print "moves:", list(_board.valid_moves_iterator)
+        LOGGER.debug("moves:", list(_board.valid_moves_iterator))
         # time.sleep(2)
 
         def expand(data):
             brd = data['board']
-            return [{'move': move, 'board': brd.simulate_move(move)} for move in brd.valid_moves_iterator]
+            return [{'moves': data['moves'] + [move], 'board': brd.simulate_move(move)} for move in brd.valid_moves_iterator]
 
         pos_inf = POS_INF
         neg_inf = NEG_INF
 
         def __min_max_prunning(node, _depth, alpha=NEG_INF, beta=POS_INF, max_turn=True):
-            # print "depth: %d" % _depth
+            LOGGER.debug("evaluating node:")
+            LOGGER.debug("%s" % str(node.data['board']))
+            LOGGER.debug("turn: %s" % node.data['board'].current_player)
             if _depth == 0:
-                return heuristic(node.data)
+
+                LOGGER.debug("terminal node:")
+                node_score = heuristic(node.data)
+                LOGGER.debug("Score:")
+                LOGGER.debug(node_score)
+                return node_score
             new_data = expand(node.data)
             if new_data:
-                # print "expanding"
                 for data in new_data:
+                    LOGGER.debug("adding child: %s" % data)
                     node.add_child(data)
             else:
-                print "reached terminal node:"
-                print node.data['board']
+                LOGGER.debug("terminal node:")
                 node_score = heuristic(node.data)
-                print "Terminal node score:"
-                print node_score
+                LOGGER.debug("Score:")
+                LOGGER.debug(node_score)
                 return node_score
             if max_turn:
                 best_value = {'score': neg_inf-1}
                 for child in node.children:
                     states = [best_value, __min_max_prunning(child, _depth-1, alpha, beta, False)]
-                    print "selecting max from %d state:" % len(states)
-                    print os.linesep.join(map(str, states))
+                    LOGGER.debug("selecting max from %d state:" % len(states))
+                    LOGGER.debug(os.linesep.join(map(str, states)))
                     best_value = max(
                         states,
                         key=lambda x: x['score']
                     )
                     alpha = max(alpha, best_value['score'])
                     if beta <= alpha:
-                        # print "prunning occurred a:%d, b:%d" % (alpha, beta)
+                        # LOGGER.debug("prunning occurred a:%d, b:%d" % (alpha, beta))
                         break
                 return best_value
             else:
                 best_value = {'score': pos_inf+1}
                 for child in node.children:
                     states = [best_value, __min_max_prunning(child, _depth-1, alpha, beta, True)]
-                    print "selecting min from %d state:" % len(states)
-                    print os.linesep.join(map(str, states))
+                    LOGGER.debug("selecting min from %d state:" % len(states))
+                    LOGGER.debug(os.linesep.join(map(str, states)))
                     best_value = min(
                         states,
                         key=lambda x: x['score']
@@ -274,7 +277,7 @@ class Player(object):
                 return best_value
 
         val = __min_max_prunning(tree, depth)
-        print "recommended for %s: %s" % (self, val)
+        LOGGER.debug("recommended for %s: %s" % (self, val))
         return val
 
     def naive_heuristic(self, state):
@@ -348,7 +351,7 @@ class Player(object):
                 my_score += ms
                 his_score += hs
                 # s += "%d|%d," % (ms, hs)
-            # print s
+            # LOGGER.debug(s)
         res['score'] = my_score - his_score
         return res
 
@@ -367,8 +370,8 @@ class TestNInARow(unittest.TestCase):
             self.second_player = self.starting_player
             self.starting_player = self._board.current_player
 
-        print "starting player : %s" % self.starting_player
-        print "second player : %s" % self.second_player
+        LOGGER.debug("starting player : %s" % self.starting_player)
+        LOGGER.debug("second player : %s" % self.second_player)
 
     def test_simple_put(self):
         self.starting_player.put_one(self._board, 0)
@@ -429,4 +432,4 @@ class TestNInARow(unittest.TestCase):
 
 if "__main__" == __name__:
     board = Board(2, rows=7, columns=7, goal=3)
-    print board.current_player.min_max(board)
+    LOGGER.debug(board.current_player.min_max(board))

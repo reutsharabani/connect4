@@ -248,7 +248,7 @@ class GameBoard(Tk.Frame):
                 self.canvas.create_oval(x1, y1, x2, y2, outline="black", fill=color, tags="pieces")
         self.canvas.tag_raise("pieces")
         if not self.board.board_won():
-            self.tip.set(self.board.current_player.min_max(self.board)['move'])
+            self.tip.set(self.board.current_player.min_max(self.board)['moves'][0])
         else:
             self.tip.set("Game over.")
         # estimated scores:
