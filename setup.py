@@ -9,7 +9,7 @@ setup(
     version='0.0.2',
     description='N-in-a-row Game',
     long_description='Simple implementation for the N-in-a-row (originally 4-in-a-row)'
-                     ' classic game using tkinter GUI',
+                     ' classic logic using tkinter GUI',
     url='https://github.com/reutsharabani/N-in-a-row',
     # Author details
     author='Reut Sharabani',
@@ -27,7 +27,7 @@ setup(
         'Programming Language :: Python :: 2.7'
     ],
     # What does your project relate to?
-    keywords='Simple and fun board game to play with younger members of family.',
+    keywords='Simple and fun board logic to play with younger members of family.',
     # You can just specify the packages manually here if your project is
     #  simple. Or you can use find_packages().
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),

@@ -1,6 +1,6 @@
 import Tkinter as Tk
+from ninarow import logic
 import logging
-from ninarow import game
 import Queue
 import time
 import threading
@@ -15,14 +15,6 @@ def show_pre_game_menu(old, root):
         old.destroy()
     frame = PreGameMenu(root)
 
-    # def destroy(_root, _frame):
-    #     def x():
-    #         print "called destroy"
-    #         _frame.destroy()
-    #         _root.destroy()
-    #     return x
-    # root.protocol("WM_DELETE_WINDOW", destroy(root, frame))
-
     root.protocol("WM_DELETE_WINDOW", root.destroy)
     frame.pack(side="top", fill="both", expand="true", padx=4, pady=4)
 
@@ -35,8 +27,10 @@ def start_game(old, root, logic_board):
 
 
 class IntSelectionWidget(Tk.Frame):
-    def __init__(self, parent, label="", start_val=0, min_val=None, max_val=None, max_error_message="maximal value reached",
-                 min_error_message="minimal value reached", on_error=None):
+    def __init__(
+            self, parent, label="", start_val=0, min_val=None, max_val=None,
+            max_error_message="maximal value reached", min_error_message="minimal value reached", on_error=None
+    ):
         Tk.Frame.__init__(self, parent)
         self.error_function = on_error
         self.max_error_message = max_error_message
@@ -135,7 +129,7 @@ class PreGameMenu(Tk.Frame):
         )
         self.goal_widget.pack()
 
-        self.start_button = Tk.Button(master=self, text="Start game!", command=threading.Thread(target=self.start_game).start)
+        self.start_button = Tk.Button(master=self, text="Start logic!", command=threading.Thread(target=self.start_game).start)
         self.start_button.pack()
         self.message_label.pack()
 
@@ -145,7 +139,7 @@ class PreGameMenu(Tk.Frame):
         start_game(
             self,
             self.parent,
-            game.Board(
+            logic.Board(
                 self.players_widget.get(),
                 rows=self.rows_widget.get(),
                 columns=self.columns_widget.get(),
@@ -212,7 +206,7 @@ class GameBoard(Tk.Frame):
             self.win_button.destroy()
         try:
             removed = self.board.undo()
-        except game.NoMovesPlayedError:
+        except logic.NoMovesPlayedError:
             self.player_indicator.set("Nothing happened, so... Undoing nothing.")
             self.refresh()
             return
@@ -228,9 +222,9 @@ class GameBoard(Tk.Frame):
     def put_one(self, column, player):
         try:
             self.board.put_one(column, player)
-        except game.NotYourTurnError as e:
+        except logic.NotYourTurnError as e:
             raise e
-        except game.LocationTakenError as e:
+        except logic.LocationTakenError as e:
             self.player_indicator.set("Column already full!")
             raise e
         self.refresh()
@@ -247,7 +241,7 @@ class GameBoard(Tk.Frame):
                 color = (self.board.get_piece(row, col) and self.board.get_piece(row, col).owner.get_color()) or "white"
                 self.canvas.create_oval(x1, y1, x2, y2, outline="black", fill=color, tags="pieces")
         self.canvas.tag_raise("pieces")
-        if not self.board.board_won():
+        if not self.board.get_winner():
             self.tip.set(self.board.current_player.min_max(self.board)['moves'][0])
         else:
             self.tip.set("Game over.")
@@ -265,9 +259,9 @@ class GameBoard(Tk.Frame):
         column = self.get_normalized_coords(event)[0]
         self.player_indicator.set("%s player plays column %s" % (player.get_color(), str(column)))
         self.put_one(column, player)
-        if self.board.board_won():
-            self.announce_winner(self.board.board_won())
-            self.player_indicator.set("%s player won the game!" % self.board.board_won().get_color())
+        if self.board.get_winner():
+            self.announce_winner(self.board.get_winner())
+            self.player_indicator.set("%s player won the logic!" % self.board.get_winner().get_color())
 
     def restart_game(self):
         show_pre_game_menu(self, self.parent)
