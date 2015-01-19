@@ -3,7 +3,9 @@ import logging
 import os
 import unittest
 from random import choice
-from tree import Tree
+
+from ninarow.utils.tree import Tree
+
 
 LOGGER = logging.getLogger("ninarow")
 LOGGER.addHandler(logging.StreamHandler())

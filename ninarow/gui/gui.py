@@ -1,6 +1,6 @@
 import Tkinter as Tk
 import logging
-from ninarow import logic
+from ninarow import game
 import Queue
 import time
 import threading
@@ -145,7 +145,7 @@ class PreGameMenu(Tk.Frame):
         start_game(
             self,
             self.parent,
-            logic.Board(
+            game.Board(
                 self.players_widget.get(),
                 rows=self.rows_widget.get(),
                 columns=self.columns_widget.get(),
@@ -212,7 +212,7 @@ class GameBoard(Tk.Frame):
             self.win_button.destroy()
         try:
             removed = self.board.undo()
-        except logic.NoMovesPlayedError:
+        except game.NoMovesPlayedError:
             self.player_indicator.set("Nothing happened, so... Undoing nothing.")
             self.refresh()
             return
@@ -228,9 +228,9 @@ class GameBoard(Tk.Frame):
     def put_one(self, column, player):
         try:
             self.board.put_one(column, player)
-        except logic.NotYourTurnError as e:
+        except game.NotYourTurnError as e:
             raise e
-        except logic.LocationTakenError as e:
+        except game.LocationTakenError as e:
             self.player_indicator.set("Column already full!")
             raise e
         self.refresh()
