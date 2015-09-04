@@ -1,43 +1,30 @@
 __author__ = 'reuts'
 import unittest
-
+from ninarow.utils.tree import Tree
+from random import choice
+import os
+import logging
 
 LOGGER = logging.getLogger("ninarow")
 LOGGER.addHandler(logging.StreamHandler())
-LOGGER.setLevel(logging.INFO)
+LOGGER.setLevel(logging.DEBUG)
 
 
 class Game(object):
 
-    def __init__(self, rows, columns, goal):
+    def __init__(self, players, rows, columns, goal):
 
-        self.board = Board(rows, columns)
-
+        self.board = Board(players, rows, columns, goal)
         self.goal = goal
 
-        self.players = []
-
-        self.current_player = None
-
-    def add_player(self, player):
-        self.players.append(player)
-
-    def start(self):
-
-        self.current_player = self.players[0]
-
-        while True:
-            if not self.board.get_winner():
-                # play next player's turn
-                self.board.put_one(self.current_player.get_move(self.board))
-
-        raise NotImplementedError("start not implemented yet")
-
-
-from random import choice
-LOGGER = logging.getLogger("ninarow-board")
-LOGGER.addHandler(logging.StreamHandler())
-LOGGER.setLevel(logging.INFO)
+    # def start(self):
+    #
+    #     while True:
+    #         if not self.board.get_winner():
+    #             # play next player's turn
+    #             self.board.put_one(self.board.current_player.get_move(self.board))
+    #
+    #     raise NotImplementedError("start not implemented yet")
 
 
 class LocationTakenError(Exception):
@@ -58,21 +45,27 @@ class BoardWonError(Exception):
 
 class Board(object):
 
-    def __init__(self, number_of_players, rows=6, columns=7, goal=24):
+    def __init__(self, players, rows=6, columns=7, goal=24):
         self.moves = list()
         self.rows = rows
         self.columns = columns
         self.goal = goal
 
+        self.tip_strategy = lambda player: MinMaxStrategy(NaiveHeuristic(player)).get_move(self, 4)
         self.board = [[None for _ in range(columns)] for _ in range(rows)]
 
-        self.players = []
-        for player in range(1, number_of_players+1):
-            self.players.append(Player(player))
+        self.players = players
 
         self.current_player = choice(self.players)
 
         LOGGER.debug("%d X %x board initialized: %s" % (rows, columns, str(self.board)))
+
+    def is_full(self):
+        for row in range(self.rows):
+            for col in range(self.columns):
+                if self.board[row][col] is None:
+                    return False
+        return True
 
     def get_size(self):
         return self.rows, self.columns
@@ -130,6 +123,7 @@ class Board(object):
                 if player.id == -1:
                     continue
                 if self.__win_from_location(row, col, player, self.goal):
+                    LOGGER.debug("Winner is: " + player.name)
                     return player
         return False
 
@@ -144,6 +138,7 @@ class Board(object):
         self.current_player = self.players[next_player_index]
 
     def put_one(self, _column):
+        LOGGER.debug("putting in column: %s" % str(_column))
         _player = self.current_player
         if self.get_winner():
             raise BoardWonError("Board already won by player: %s" % self.get_winner())
@@ -190,11 +185,10 @@ class Board(object):
 
     def copy(self):
         _board = Board(
-            len(self.players), rows=self.rows, columns=self.columns, goal=self.goal
+            self.players, rows=self.rows, columns=self.columns, goal=self.goal
         )
         _board.board = [x[:] for x in self.board]
         # these are not sent on initialization
-        _board.players = self.players
         _board.current_player = self.current_player
         return _board
 
@@ -204,12 +198,6 @@ class Board(object):
         return new_board
 
 
-from ninarow.utils.tree import Tree
-import os
-import logging
-LOGGER = logging.getLogger("ninarow-player")
-LOGGER.addHandler(logging.StreamHandler())
-LOGGER.setLevel(logging.INFO)
 
 
 POS_INF = 9999999999
@@ -220,21 +208,20 @@ class TooManyPlayersError(Exception):
     pass
 
 
-class Player(object):
+class AbstractPlayer(object):
 
-    _ids = 0
+    _ids = 1
 
     def __init__(self, name):
-        if Player._ids > 6:
+        if AbstractPlayer._ids > 6:
             raise TooManyPlayersError()
         self.name = name
-        self.id = Player._ids
-        Player._ids += 1
+        self.id = AbstractPlayer._ids
+        AbstractPlayer._ids += 1
         LOGGER.debug("added player %s with id %d" % (self.name, self.id))
 
-    def get_move(self, board):
-        # grab human move somehow
-        raise NotImplemented("Get move not implemented for humans")
+    def get_move(self, board, column):
+        raise NotImplementedError("Move not implemented for abstract player")
 
     def get_color(self):
         return {
@@ -254,17 +241,31 @@ class Player(object):
         #     return board.simulate_move(move)
 
 
-class ComputerMinMaxPlayer(Player):
+class HumanPlayer(AbstractPlayer):
+    def get_move(self, board, column):
+        return column
+
+
+class BoardFullError(Exception):
+    pass
+
+
+class ComputerMinMaxPlayer(AbstractPlayer):
 
     _ids = 0
 
-    def __init__(self, heuristic, difficulty):
+    def __init__(self, heuristic_class, difficulty):
         super(ComputerMinMaxPlayer, self).__init__("pc-min-max-%d" % ComputerMinMaxPlayer._ids)
-        self.strategy = MinMaxStrategy(heuristic)
+        self.strategy = MinMaxStrategy(heuristic_class(self))
         self.difficulty = difficulty
 
-    def get_move(self, board):
-        return self.strategy.get_move(board, depth=self.difficulty)
+    def get_move(self, board, column):
+        winner = board.get_winner()
+        if winner:
+            raise BoardWonError("Board already won by %s" % winner)
+        if board.is_full():
+            raise BoardFullError("Board full. Undo or quit.")
+        return self.strategy.get_move(board, depth=self.difficulty)['moves'][0]
 
 
 class BaseHeuristic(object):
@@ -278,6 +279,7 @@ class BaseHeuristic(object):
 class BaseStrategy(object):
     def __init__(self, heuristic):
         self.heuristic = heuristic
+        LOGGER.debug("Created strategy")
 
     def get_move(self, board):
         raise NotImplemented("Not implemented for base class")
@@ -285,10 +287,15 @@ class BaseStrategy(object):
 
 class MinMaxStrategy(BaseStrategy):
 
+    def __init__(self, heuristic):
+        LOGGER.debug("Creating minmax strategy")
+        super(MinMaxStrategy, self).__init__(heuristic)
+
     def get_move(self, _board, depth=4):
+        LOGGER.info("depth: %d" % depth)
         tree = Tree({'moves': [], 'board': _board})
 
-        LOGGER.debug("moves:", list(_board.valid_moves_iterator))
+        LOGGER.debug("moves: %s" % str(list(_board.valid_moves_iterator)))
 
         def expand(data):
             brd = data['board']
@@ -306,13 +313,14 @@ class MinMaxStrategy(BaseStrategy):
             LOGGER.debug("evaluating node:")
             LOGGER.debug("%s" % str(node.data['board']))
             LOGGER.debug("turn: %s" % node.data['board'].current_player)
+            result = dict(node.data)
             if _depth == 0:
 
                 LOGGER.debug("terminal node:")
-                node_score = self.heuristic.score(node.data['board'])
-                LOGGER.debug("Score:")
-                LOGGER.debug(node_score)
-                return node_score
+                result.update({"score": self.heuristic.score(node.data['board'])})
+                LOGGER.debug("result:")
+                LOGGER.debug(result)
+                return result
             new_data = expand(node.data)
             if new_data:
                 for data in new_data:
@@ -320,10 +328,10 @@ class MinMaxStrategy(BaseStrategy):
                     node.add_child(data)
             else:
                 LOGGER.debug("terminal node:")
-                node_score = self.heuristic.score(node.data['board'])
-                LOGGER.debug("Score:")
-                LOGGER.debug(node_score)
-                return node_score
+                result.update({"score": self.heuristic.score(node.data['board'])})
+                LOGGER.debug("result:")
+                LOGGER.debug(result)
+                return result
             if max_turn:
                 best_value = {'score': neg_inf-1}
                 for child in node.children:
@@ -418,7 +426,7 @@ class OpenEndedRunHeuristic(BaseHeuristic):
         my_score = 0
         his_score = 0
         players = board.players[:]
-        players.remove(self)
+        players.remove(self.player)
         him = players[0]
         for row in range(board.rows):
             # s = ""
@@ -449,7 +457,9 @@ class TestNInARowGame(unittest.TestCase):
 
     def test_simple(self):
         self.game = Game(2, 2, 2)
-        p1, p2 = Player("Reut"), Player("Eilit")
+        p1, p2 = AbstractPlayer("Reut"), AbstractPlayer("Eilit")
         self.game.add_player(p1)
         self.game.add_player(p2)
         self.game.start()
+
+

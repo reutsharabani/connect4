@@ -1,9 +1,10 @@
 import Tkinter as Tk
-from ninarow import logic
+from ninarow.logic import game
 import logging
 import Queue
 import time
 import threading
+from random import choice
 
 LOGGER = logging.getLogger("ninarow GUI")
 LOGGER.addHandler(logging.StreamHandler())
@@ -19,14 +20,16 @@ def show_pre_game_menu(old, root):
     frame.pack(side="top", fill="both", expand="true", padx=4, pady=4)
 
 
-def start_game(old, root, logic_board):
+def start_game(old, root, game):
     old.message_queue.put("stop")
+
     old.destroy()
-    game_board = GameBoard(root, logic_board)
+    game_board = GameBoard(root, game)
     game_board.pack(side="top", fill="both", expand="true", padx=4, pady=4)
 
 
 class IntSelectionWidget(Tk.Frame):
+
     def __init__(
             self, parent, label="", start_val=0, min_val=None, max_val=None,
             max_error_message="maximal value reached", min_error_message="minimal value reached", on_error=None
@@ -81,17 +84,29 @@ class PreGameMenu(Tk.Frame):
         self.messenger_thread = threading.Thread(target=self.messenger)
         self.messenger_thread.start()
 
-        self.players_widget = IntSelectionWidget(
+        self.human_players_widget = IntSelectionWidget(
             self,
-            label="Number of players",
-            start_val=2,
-            min_val=2,
-            max_val=6,
-            max_error_message="Maximal players -> 6",
+            label="Number of human players",
+            start_val=1,
+            min_val=1,
+            max_val=3,
+            max_error_message="Maximal players -> 3",
             min_error_message="Minimal players -> 2",
             on_error=self.display_message
         )
-        self.players_widget.pack()
+        self.human_players_widget.pack()
+
+        self.computer_players_widget = IntSelectionWidget(
+            self,
+            label="Number of computer players",
+            start_val=1,
+            min_val=0,
+            max_val=3,
+            max_error_message="Maximal players -> 3",
+            min_error_message="Minimal players -> 2",
+            on_error=self.display_message
+        )
+        self.computer_players_widget.pack()
 
         self.rows_widget = IntSelectionWidget(
             self,
@@ -129,21 +144,31 @@ class PreGameMenu(Tk.Frame):
         )
         self.goal_widget.pack()
 
-        self.start_button = Tk.Button(master=self, text="Start logic!", command=threading.Thread(target=self.start_game).start)
+        self.start_button = Tk.Button(
+            master=self, text="Start logic!", command=threading.Thread(target=self.start_game).start
+        )
         self.start_button.pack()
         self.message_label.pack()
 
     def start_game(self):
         self.message_rate = 0
         self.message_queue.put("stop")
+
+        # add gui menu to select players
+        players = [
+            game.HumanPlayer("name %d" % i) for i in range(self.human_players_widget.get())
+        ] + [
+            game.ComputerMinMaxPlayer(game.NaiveHeuristic, 4) for _ in range(self.computer_players_widget.get())
+        ]
         start_game(
             self,
             self.parent,
-            logic.Board(
-                self.players_widget.get(),
+            game.Game(
+                players,
                 rows=self.rows_widget.get(),
                 columns=self.columns_widget.get(),
-                goal=self.goal_widget.get())
+                goal=self.goal_widget.get()
+            )
         )
 
     def destroy(self):
@@ -172,11 +197,12 @@ class PreGameMenu(Tk.Frame):
 
 class GameBoard(Tk.Frame):
 
-    def __init__(self, parent, board):
+    def __init__(self, parent, _game):
         self.parent = parent
 
-        self.board = board
-        self.rows, self.columns = board.get_size()
+        self.game = _game
+        self.board = _game.board
+        self.rows, self.columns = self.board.get_size()
         self.cell_size = 40
         canvas_width = self.columns * self.cell_size
         canvas_height = self.rows * self.cell_size
@@ -191,7 +217,10 @@ class GameBoard(Tk.Frame):
         self.canvas.pack(side="top", fill="both", expand=True, padx=2, pady=2)
 
         self.canvas.bind("<Configure>", self.resize_event)
-        self.canvas.bind("<Button-1>", self.put_one_event)
+        if isinstance(self.game.board.current_player, game.HumanPlayer):
+            self.canvas.bind("<Button-1>", self.put_one_event)
+        else:
+            self.canvas.bind("<Button-1>", lambda x: self.put_one(self.board.current_player.get_move(self.board, None)))
 
         self.undo_button = Tk.Button(self, text="Undo", fg="red", bg="black", command=self.undo)
         self.undo_button.pack()
@@ -201,12 +230,17 @@ class GameBoard(Tk.Frame):
 
         self.win_button = None
 
+        # self.game.start()
+
     def undo(self):
         if self.win_button:
             self.win_button.destroy()
         try:
+            # remove two pieces and put one back to re-do all logic of last put event
             removed = self.board.undo()
-        except logic.NoMovesPlayedError:
+            removed_and_returned = self.board.undo()
+            self.put_one(removed_and_returned[1])
+        except game.NoMovesPlayedError:
             self.player_indicator.set("Nothing happened, so... Undoing nothing.")
             self.refresh()
             return
@@ -219,12 +253,19 @@ class GameBoard(Tk.Frame):
         self.cell_size = min(x_size, y_size)
         self.refresh()
 
-    def put_one(self, column, player):
+    def put_one(self, column):
         try:
-            self.board.put_one(column, player)
-        except logic.NotYourTurnError as e:
+            self.board.put_one(column)
+            if isinstance(self.board.current_player, game.HumanPlayer):
+                # pass control to mouse button
+                self.canvas.bind("<Button-1>", self.put_one_event)
+            else:
+                self.canvas.bind(
+                    "<Button-1>", lambda x: self.put_one(self.board.current_player.get_move(self.board, column))
+                )
+        except game.NotYourTurnError as e:
             raise e
-        except logic.LocationTakenError as e:
+        except game.LocationTakenError as e:
             self.player_indicator.set("Column already full!")
             raise e
         self.refresh()
@@ -241,24 +282,25 @@ class GameBoard(Tk.Frame):
                 color = (self.board.get_piece(row, col) and self.board.get_piece(row, col).owner.get_color()) or "white"
                 self.canvas.create_oval(x1, y1, x2, y2, outline="black", fill=color, tags="pieces")
         self.canvas.tag_raise("pieces")
-        if not self.board.get_winner():
-            self.tip.set(self.board.current_player.min_max(self.board)['moves'][0])
+        if self.board.get_winner():
+            self.tip.set("Game over - %s won." % self.board.current_player)
         else:
-            self.tip.set("Game over.")
+            self.tip.set("%(score)d, %(moves)s" % self.board.tip_strategy(self.board.current_player))
         # estimated scores:
-        print "scores: %s" % self.board.players
-        for player in self.board.players:
-            print "%s: %s" % (player.get_color(), player.open_ended_run_heuristic({'board': self.board}))
+        print "scores: %s" % '\n'.join(str(player) for player in self.board.players)
+        # for player in self.board.players:
+        #     print "%s: %s" % (player.get_color(), player.open_ended_run_heuristic({'board': self.board}))
         LOGGER.debug("redrew canvas")
 
     def get_normalized_coords(self, event):
         return event.x / self.cell_size, event.y / self.cell_size
 
     def put_one_event(self, event):
+        self.canvas.unbind("<Button-1>")
         player = self.board.current_player
         column = self.get_normalized_coords(event)[0]
         self.player_indicator.set("%s player plays column %s" % (player.get_color(), str(column)))
-        self.put_one(column, player)
+        self.put_one(column)
         if self.board.get_winner():
             self.announce_winner(self.board.get_winner())
             self.player_indicator.set("%s player won the logic!" % self.board.get_winner().get_color())

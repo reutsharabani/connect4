@@ -1,4 +1,4 @@
 __author__ = 'reut'
 
-# import gui
-# gui.main()
+from ninarow.gui import gui
+gui.main()
