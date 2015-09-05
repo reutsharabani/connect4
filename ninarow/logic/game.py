@@ -1,30 +1,18 @@
 __author__ = 'reuts'
-import unittest
-from ninarow.utils.tree import Tree
 from random import choice
 import os
 import logging
+from AI import NaiveHeuristic, MinMaxStrategy, OpenEndedRunHeuristic
 
-LOGGER = logging.getLogger("ninarow")
+LOGGER = logging.getLogger("ninarow-logic")
 LOGGER.addHandler(logging.StreamHandler())
-LOGGER.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.INFO)
 
 
 class Game(object):
-
     def __init__(self, players, rows, columns, goal):
-
         self.board = Board(players, rows, columns, goal)
         self.goal = goal
-
-    # def start(self):
-    #
-    #     while True:
-    #         if not self.board.get_winner():
-    #             # play next player's turn
-    #             self.board.put_one(self.board.current_player.get_move(self.board))
-    #
-    #     raise NotImplementedError("start not implemented yet")
 
 
 class LocationTakenError(Exception):
@@ -44,15 +32,14 @@ class BoardWonError(Exception):
 
 
 class Board(object):
-
     def __init__(self, players, rows=6, columns=7, goal=24):
         self.moves = list()
         self.rows = rows
         self.columns = columns
         self.goal = goal
 
-        self.tip_strategy = lambda player: MinMaxStrategy(NaiveHeuristic(player)).get_move(self, 4)
-        self.board = [[None for _ in range(columns)] for _ in range(rows)]
+        self.tip_strategy = lambda player: MinMaxStrategy(OpenEndedRunHeuristic(player)).get_move(self, 6)
+        self.board = [tuple(None for _ in range(columns)) for _ in range(rows)]
 
         self.players = players
 
@@ -87,7 +74,7 @@ class Board(object):
         new_row = row + direction[0]
         new_col = col + direction[1]
         return piece.owner == player and self.__win_from_location_with_direction(
-            new_row, new_col, player, left-1, direction
+            new_row, new_col, player, left - 1, direction
         )
 
     def __win_by_row_from_location(self, row, col, player, left):
@@ -147,7 +134,9 @@ class Board(object):
 
             LOGGER.debug("Trying to put %s in %d, %d - %s" % (_player, row, _column, _piece))
             if not _piece:
-                self.board[row][_column] = Piece(row, _column, _player)
+                self.board[row] = tuple(
+                    piece if not column == _column else Piece(row, _column, _player) for column, piece in
+                    enumerate(self.board[row]))
                 self.move_turn_to_next_player()
                 self.moves.append((self.current_player, row, _column,))
                 return row, _column
@@ -157,7 +146,9 @@ class Board(object):
     def undo(self):
         if len(self.moves) > 0:
             player, row, column = self.moves.pop()
-            self.board[row][column] = None
+            self.board[row] = tuple(
+                piece if not column == _column else None for _column, piece in
+                enumerate(self.board[row]))
             self.move_turn_to_previous_player()
             return row, column
         else:
@@ -187,8 +178,8 @@ class Board(object):
         _board = Board(
             self.players, rows=self.rows, columns=self.columns, goal=self.goal
         )
-        _board.board = [x[:] for x in self.board]
-        # these are not sent on initialization
+        _board.board = [x for x in self.board]
+        # these are not set correctly on initialization
         _board.current_player = self.current_player
         return _board
 
@@ -198,18 +189,11 @@ class Board(object):
         return new_board
 
 
-
-
-POS_INF = 9999999999
-NEG_INF = -9999999999
-
-
 class TooManyPlayersError(Exception):
     pass
 
 
 class AbstractPlayer(object):
-
     _ids = 1
 
     def __init__(self, name):
@@ -238,7 +222,7 @@ class AbstractPlayer(object):
         return "Player: %d" % self.id
 
         # def play(self, _board, move):
-        #     return board.simulate_move(move)
+        # return board.simulate_move(move)
 
 
 class HumanPlayer(AbstractPlayer):
@@ -251,7 +235,6 @@ class BoardFullError(Exception):
 
 
 class ComputerMinMaxPlayer(AbstractPlayer):
-
     _ids = 0
 
     def __init__(self, heuristic_class, difficulty):
@@ -268,198 +251,22 @@ class ComputerMinMaxPlayer(AbstractPlayer):
         return self.strategy.get_move(board, depth=self.difficulty)['moves'][0]
 
 
-class BaseHeuristic(object):
-    def __init__(self, player):
-        self.player = player
-
-    def score(self, board):
-        raise NotImplemented("Not implemented for base heuristic")
-
-
-class BaseStrategy(object):
-    def __init__(self, heuristic):
-        self.heuristic = heuristic
-        LOGGER.debug("Created strategy")
-
-    def get_move(self, board):
-        raise NotImplemented("Not implemented for base class")
-
-
-class MinMaxStrategy(BaseStrategy):
-
-    def __init__(self, heuristic):
-        LOGGER.debug("Creating minmax strategy")
-        super(MinMaxStrategy, self).__init__(heuristic)
-
-    def get_move(self, _board, depth=4):
-        LOGGER.info("depth: %d" % depth)
-        tree = Tree({'moves': [], 'board': _board})
-
-        LOGGER.debug("moves: %s" % str(list(_board.valid_moves_iterator)))
-
-        def expand(data):
-            brd = data['board']
-            return [
-                {
-                    'moves': data['moves'] + [move],
-                    'board': brd.simulate_move(move)
-                } for move in brd.valid_moves_iterator
-            ]
-
-        pos_inf = POS_INF
-        neg_inf = NEG_INF
-
-        def __min_max_prunning(node, _depth, alpha=NEG_INF, beta=POS_INF, max_turn=True):
-            LOGGER.debug("evaluating node:")
-            LOGGER.debug("%s" % str(node.data['board']))
-            LOGGER.debug("turn: %s" % node.data['board'].current_player)
-            result = dict(node.data)
-            if _depth == 0:
-
-                LOGGER.debug("terminal node:")
-                result.update({"score": self.heuristic.score(node.data['board'])})
-                LOGGER.debug("result:")
-                LOGGER.debug(result)
-                return result
-            new_data = expand(node.data)
-            if new_data:
-                for data in new_data:
-                    LOGGER.debug("adding child: %s" % data)
-                    node.add_child(data)
-            else:
-                LOGGER.debug("terminal node:")
-                result.update({"score": self.heuristic.score(node.data['board'])})
-                LOGGER.debug("result:")
-                LOGGER.debug(result)
-                return result
-            if max_turn:
-                best_value = {'score': neg_inf-1}
-                for child in node.children:
-                    states = [best_value, __min_max_prunning(child, _depth-1, alpha, beta, False)]
-                    LOGGER.debug("selecting max from %d state:" % len(states))
-                    LOGGER.debug(os.linesep.join(map(str, states)))
-                    best_value = max(
-                        states,
-                        key=lambda x: x['score']
-                    )
-                    alpha = max(alpha, best_value['score'])
-                    if beta <= alpha:
-                        # LOGGER.debug("prunning occurred a:%d, b:%d" % (alpha, beta))
-                        break
-                return best_value
-            else:
-                best_value = {'score': pos_inf+1}
-                for child in node.children:
-                    states = [best_value, __min_max_prunning(child, _depth-1, alpha, beta, True)]
-                    LOGGER.debug("selecting min from %d state:" % len(states))
-                    LOGGER.debug(os.linesep.join(map(str, states)))
-                    best_value = min(
-                        states,
-                        key=lambda x: x['score']
-                    )
-                    beta = min(beta, best_value['score'])
-                    if beta <= alpha:
-                        break
-                return best_value
-
-        val = __min_max_prunning(tree, depth)
-        LOGGER.debug("recommended for %s: %s" % (self, val))
-        return val
-
-
-class NaiveHeuristic(BaseHeuristic):
-    def score(self, board):
-        if board.get_winner():
-            if board.get_winner() == self.player:
-                return POS_INF
-            else:
-                return NEG_INF
-        return 1
-
-
-class OpenEndedRunHeuristic(BaseHeuristic):
-    def score(self, board):
-        if board.get_winner():
-            if board.get_winner() == self.player:
-                return POS_INF
-            else:
-                return NEG_INF
-
-        def score_piece(_row, _col, p, running_score=1, direction=None):
-            if not 0 <= _row < len(board.board):
-                return 0
-            if not 0 <= _col < len(board.board[_row]):
-                return 0
-            directions = [
-                (0, 1),
-                (0, -1),
-                (1, 0),
-                (1, 1),
-                (1, -1),
-                (-1, 0),
-                (-1, 1),
-                (-1, -1),
-            ]
-            piece = board.board[_row][_col]
-            if not piece:
-                return running_score
-            if not piece.owner is p:
-                # location owned by someone else
-                return 0
-            if piece.owner is p:
-                # this is our piece, expand
-                if not direction:
-                    # start all directions
-                    score_map = map(
-                        lambda x: running_score * score_piece(
-                            _row+x[0], _col+x[1], p, running_score+1, x
-                        ), directions
-                    )
-                    return sum(score_map)
-                else:
-                    # use direction set in previous frame
-                    return running_score * score_piece(
-                        _row+direction[0], _col+direction[1], p, running_score+1, direction
-                    )
-            assert False
-        # we recursively value pieces located with option to continue
-        my_score = 0
-        his_score = 0
-        players = board.players[:]
-        players.remove(self.player)
-        him = players[0]
-        for row in range(board.rows):
-            # s = ""
-            for col in range(board.columns):
-                ms = score_piece(row, col, self)
-                hs = score_piece(row, col, him)
-                my_score += ms
-                his_score += hs
-                # s += "%d|%d," % (ms, hs)
-                # LOGGER.debug(s)
-        return my_score - his_score
-
-
 class Piece(object):
-
     def __init__(self, x, y, owner):
         self.owner = owner
         self.location = (x, y,)
 
+    def __repr__(self):
+        return str(self)
+
     def __str__(self):
         return "[Piece at %s taken by %s]" % (self.location, self.owner)
 
+    def __hash__(self):
+        return hash((self.owner.id, self.location))
 
-class TestNInARowGame(unittest.TestCase):
+    def __eq__(self, other):
 
-    def setUp(self):
-        pass
-
-    def test_simple(self):
-        self.game = Game(2, 2, 2)
-        p1, p2 = AbstractPlayer("Reut"), AbstractPlayer("Eilit")
-        self.game.add_player(p1)
-        self.game.add_player(p2)
-        self.game.start()
-
-
+        return other and isinstance(other, Piece) and (
+            self.owner.id == other.owner.id
+        ) and (self.location == other.location)

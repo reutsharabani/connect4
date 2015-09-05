@@ -4,9 +4,8 @@ import logging
 import Queue
 import time
 import threading
-from random import choice
 
-LOGGER = logging.getLogger("ninarow GUI")
+LOGGER = logging.getLogger("ninarow-gui")
 LOGGER.addHandler(logging.StreamHandler())
 LOGGER.setLevel(logging.DEBUG)
 
@@ -88,7 +87,7 @@ class PreGameMenu(Tk.Frame):
             self,
             label="Number of human players",
             start_val=1,
-            min_val=1,
+            min_val=0,
             max_val=3,
             max_error_message="Maximal players -> 3",
             min_error_message="Minimal players -> 2",
@@ -107,6 +106,18 @@ class PreGameMenu(Tk.Frame):
             on_error=self.display_message
         )
         self.computer_players_widget.pack()
+
+        self.difficulty_widget = IntSelectionWidget(
+            self,
+            label="Difficulty",
+            start_val=3,
+            min_val=1,
+            max_val=8,
+            max_error_message="Maximal difficulty -> 8 (over 5 may take a long time for PC to play)",
+            min_error_message="Minimal difficulty -> 1",
+            on_error=self.display_message
+        )
+        self.difficulty_widget.pack()
 
         self.rows_widget = IntSelectionWidget(
             self,
@@ -158,7 +169,7 @@ class PreGameMenu(Tk.Frame):
         players = [
             game.HumanPlayer("name %d" % i) for i in range(self.human_players_widget.get())
         ] + [
-            game.ComputerMinMaxPlayer(game.NaiveHeuristic, 4) for _ in range(self.computer_players_widget.get())
+            game.ComputerMinMaxPlayer(game.NaiveHeuristic, self.difficulty_widget.get()) for _ in range(self.computer_players_widget.get())
         ]
         start_game(
             self,
@@ -217,10 +228,10 @@ class GameBoard(Tk.Frame):
         self.canvas.pack(side="top", fill="both", expand=True, padx=2, pady=2)
 
         self.canvas.bind("<Configure>", self.resize_event)
-        if isinstance(self.game.board.current_player, game.HumanPlayer):
-            self.canvas.bind("<Button-1>", self.put_one_event)
-        else:
-            self.canvas.bind("<Button-1>", lambda x: self.put_one(self.board.current_player.get_move(self.board, None)))
+        # if isinstance(self.game.board.current_player, game.HumanPlayer):
+        self.canvas.bind("<Button-1>", self.put_one_event)
+        # else:
+        #     self.canvas.bind("<Button-1>", lambda x: self.put_one(self.board.current_player.get_move(self.board, None)))
 
         self.undo_button = Tk.Button(self, text="Undo", fg="red", bg="black", command=self.undo)
         self.undo_button.pack()
@@ -298,7 +309,8 @@ class GameBoard(Tk.Frame):
     def put_one_event(self, event):
         self.canvas.unbind("<Button-1>")
         player = self.board.current_player
-        column = self.get_normalized_coords(event)[0]
+        pressed_column = self.get_normalized_coords(event)[0]
+        column = self.board.current_player.get_move(self.board, pressed_column)
         self.player_indicator.set("%s player plays column %s" % (player.get_color(), str(column)))
         self.put_one(column)
         if self.board.get_winner():
