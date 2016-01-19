@@ -6,7 +6,11 @@ import time
 import threading
 
 LOGGER = logging.getLogger("ninarow-gui")
-LOGGER.addHandler(logging.StreamHandler())
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+sh = logging.StreamHandler()
+sh.setFormatter(formatter)
+sh.setLevel(logging.DEBUG)
+LOGGER.addHandler(sh)
 LOGGER.setLevel(logging.DEBUG)
 
 
@@ -266,6 +270,7 @@ class GameBoard(Tk.Frame):
 
     def put_one(self, column):
         try:
+            LOGGER.debug("Putting: %s" % str(column))
             self.board.put_one(column)
             if isinstance(self.board.current_player, game.HumanPlayer):
                 # pass control to mouse button
@@ -297,7 +302,7 @@ class GameBoard(Tk.Frame):
             self.tip.set("Game over - %s won." % self.board.current_player)
         else:
             # self.tip.set("%(score)d, %(moves)s" % self.board.tip_strategy(self.board.current_player))
-            self.tip.set("%s" % str(self.board.tip_strategy(self.board.current_player).moves))
+            self.tip.set("%s" % str(self.board.tip_strategy(self.board.current_player).moves[-1][2]))
         # estimated scores:
         print "scores: %s" % '\n'.join(str(player) for player in self.board.players)
         # for player in self.board.players:
@@ -312,11 +317,16 @@ class GameBoard(Tk.Frame):
         player = self.board.current_player
         pressed_column = self.get_normalized_coords(event)[0]
         column = self.board.current_player.get_move(self.board, pressed_column)
+        if not column:
+            self.canvas.bind("<Button-1>", self.put_one_event)
+            LOGGER.debug("Couldn't find column")
+            return
         self.player_indicator.set("%s player plays column %s" % (player.get_color(), str(column)))
+        LOGGER.debug("put one event: %s" % str(column))
         self.put_one(column)
         if self.board.get_winner():
             self.announce_winner(self.board.get_winner())
-            self.player_indicator.set("%s player won the logic!" % self.board.get_winner().get_color())
+            self.player_indicator.set("%s player won the game!" % self.board.get_winner().get_color())
 
     def restart_game(self):
         show_pre_game_menu(self, self.parent)
