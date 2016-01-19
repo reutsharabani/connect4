@@ -9,6 +9,7 @@ LOGGER.addHandler(sh)
 LOGGER.setLevel(logging.INFO)
 
 
+# absorb and replace last state? open-listing of states... (just guessing)
 class Tree(object):
 
     def __init__(self, data, parent=None):

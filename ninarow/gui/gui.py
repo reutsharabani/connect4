@@ -169,7 +169,7 @@ class PreGameMenu(Tk.Frame):
         players = [
             game.HumanPlayer("name %d" % i) for i in range(self.human_players_widget.get())
         ] + [
-            game.ComputerMinMaxPlayer(game.NaiveHeuristic, self.difficulty_widget.get()) for _ in range(self.computer_players_widget.get())
+            game.ComputerMinMaxPlayer(game.OpenEndedRunHeuristic, self.difficulty_widget.get()) for _ in range(self.computer_players_widget.get())
         ]
         start_game(
             self,
@@ -296,7 +296,8 @@ class GameBoard(Tk.Frame):
         if self.board.get_winner():
             self.tip.set("Game over - %s won." % self.board.current_player)
         else:
-            self.tip.set("%(score)d, %(moves)s" % self.board.tip_strategy(self.board.current_player))
+            # self.tip.set("%(score)d, %(moves)s" % self.board.tip_strategy(self.board.current_player))
+            self.tip.set("%s" % str(self.board.tip_strategy(self.board.current_player).moves))
         # estimated scores:
         print "scores: %s" % '\n'.join(str(player) for player in self.board.players)
         # for player in self.board.players:

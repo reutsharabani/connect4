@@ -1,8 +1,7 @@
-__author__ = 'reuts'
 from random import choice
 import os
 import logging
-from AI import NaiveHeuristic, MinMaxStrategy, OpenEndedRunHeuristic
+from AI import MinMaxStrategy, OpenEndedRunHeuristic
 
 LOGGER = logging.getLogger("ninarow-logic")
 LOGGER.addHandler(logging.StreamHandler())
@@ -32,17 +31,19 @@ class BoardWonError(Exception):
 
 
 class Board(object):
-    def __init__(self, players, rows=6, columns=7, goal=24):
-        self.moves = list()
+    NEGATIVE_BOARD = object()
+    POSITIVE_BOARD = object()
+
+    def __init__(self, players, rows=6, columns=7, goal=24, tipheuristic=OpenEndedRunHeuristic, moves=()):
+        self.moves = moves
         self.rows = rows
         self.columns = columns
         self.goal = goal
 
-        self.tip_strategy = lambda player: MinMaxStrategy(OpenEndedRunHeuristic(player)).get_move(self, 6)
+        self.tip_strategy = lambda player: MinMaxStrategy(tipheuristic(player)).get_move(self, 6)
         self.board = [tuple(None for _ in range(columns)) for _ in range(rows)]
 
         self.players = players
-
         self.current_player = choice(self.players)
 
         LOGGER.debug("%d X %x board initialized: %s" % (rows, columns, str(self.board)))
@@ -130,6 +131,7 @@ class Board(object):
         if self.get_winner():
             raise BoardWonError("Board already won by player: %s" % self.get_winner())
         for row in reversed(range(self.rows)):
+            print row, _column
             _piece = self.board[row][_column]
 
             LOGGER.debug("Trying to put %s in %d, %d - %s" % (_player, row, _column, _piece))
@@ -138,7 +140,7 @@ class Board(object):
                     piece if not column == _column else Piece(row, _column, _player) for column, piece in
                     enumerate(self.board[row]))
                 self.move_turn_to_next_player()
-                self.moves.append((self.current_player, row, _column,))
+                self.moves + ((self.current_player, row, _column,),)
                 return row, _column
 
         raise LocationTakenError()
@@ -174,18 +176,18 @@ class Board(object):
             if self.board[0][i] is None:
                 yield i
 
-    def copy(self):
+    def copy(self, move):
         _board = Board(
             self.players, rows=self.rows, columns=self.columns, goal=self.goal
         )
         _board.board = [x for x in self.board]
         # these are not set correctly on initialization
         _board.current_player = self.current_player
+        _board.put_one(move)
         return _board
 
     def simulate_move(self, move):
-        new_board = self.copy()
-        new_board.put_one(move)
+        new_board = self.copy(move)
         return new_board
 
 
@@ -248,7 +250,7 @@ class ComputerMinMaxPlayer(AbstractPlayer):
             raise BoardWonError("Board already won by %s" % winner)
         if board.is_full():
             raise BoardFullError("Board full. Undo or quit.")
-        return self.strategy.get_move(board, depth=self.difficulty)['moves'][0]
+        return self.strategy.get_move(board, startdepth=self.difficulty).moves[len(board.moves):]
 
 
 class Piece(object):
@@ -266,7 +268,6 @@ class Piece(object):
         return hash((self.owner.id, self.location))
 
     def __eq__(self, other):
-
         return other and isinstance(other, Piece) and (
             self.owner.id == other.owner.id
         ) and (self.location == other.location)
