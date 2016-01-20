@@ -1,5 +1,6 @@
 # -*- coding: utf8 -*-
 import ninarow.logic.game
+import os
 
 
 class NaiveHeuristic(object):
@@ -65,10 +66,11 @@ class MinMaxStrategy(object):
 
 def unruined_nruns(board):
     for nrun in board.nrun_iterator:
-        players_on_nrun = tuple(board.get_piece(*location) for location in nrun)
+        players_on_nrun = tuple(board.get_piece(*location).owner for location in nrun if board.get_piece(*location) is not None)
         owners = set(players_on_nrun)
         if len(owners) == 1:
-            yield nrun, players_on_nrun.count(next(owners.__iter__()))
+            owner = next(owners.__iter__())
+            yield nrun, players_on_nrun.count(owner), owner
 
 
 class PossibleVictoryHeuristic(object):
@@ -81,4 +83,12 @@ class PossibleVictoryHeuristic(object):
         if board is ninarow.logic.game.Board.NEGATIVE_BOARD:
             return -9999
         # TODO: scale with run length and strength (already taken pieces)
-        return sum(map(lambda run_player: -2 if run_player[1] is not self.player else 1, unruined_nruns(board)))
+        unruinedruns = list(unruined_nruns(board))
+        print os.linesep.join(str(l) for l in unruinedruns)
+
+        def __value(run, count, player):
+            result = -2 if player is not self.player else 1
+            print "heuristic result: %d" % result
+            return result
+
+        return sum(map(lambda args: __value(*args), unruined_nruns(board)))
