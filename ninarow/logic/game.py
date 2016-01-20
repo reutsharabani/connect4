@@ -1,7 +1,7 @@
 from random import choice
 import os
 import logging
-from AI import MinMaxStrategy, OpenEndedRunHeuristic
+from AI import MinMaxStrategy, PossibleVictoryHeuristic
 
 LOGGER = logging.getLogger("ninarow-logic")
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -12,8 +12,16 @@ LOGGER.addHandler(sh)
 LOGGER.setLevel(logging.DEBUG)
 
 
+def make_directions(rows, columns, goal):
+    return ((0, 1, xrange(rows), xrange(columns - goal)),
+            (1, 0, xrange(rows - goal), xrange(columns)),
+            (1, 1, xrange(rows - goal), xrange(columns - goal)),
+            (-1, 1, xrange(goal, rows), xrange(columns - goal)))
+
+
 class Game(object):
     def __init__(self, players, rows, columns, goal):
+        # rowstep, colstep, row-xrange, col-xrange
         self.board = Board(players, rows, columns, goal)
         self.goal = goal
 
@@ -38,7 +46,8 @@ class Board(object):
     NEGATIVE_BOARD = object()
     POSITIVE_BOARD = object()
 
-    def __init__(self, players, rows=6, columns=7, goal=24, tipheuristic=OpenEndedRunHeuristic, moves=()):
+    def __init__(self, players, rows=6, columns=7, goal=24, tipheuristic=PossibleVictoryHeuristic,
+                 moves=()):
         self.moves = moves
         self.rows = rows
         self.columns = columns
@@ -49,6 +58,8 @@ class Board(object):
 
         self.players = players
         self.current_player = choice(self.players)
+
+        self.directions = make_directions(self.rows, self.columns, self.goal)
 
         LOGGER.debug("%d X %x board initialized: %s" % (rows, columns, str(self.board)))
 
@@ -151,9 +162,9 @@ class Board(object):
 
     def undo(self):
         if len(self.moves) > 0:
-            self.moves = list(self.moves)
-            player, row, column = self.moves.pop()
-            self.moves = tuple(self.moves)
+            tempmoves = list(self.moves)
+            player, row, column = tempmoves.pop()
+            self.moves = tuple(tempmoves)
             self.board[row] = tuple(
                 piece if not column == _column else None for _column, piece in
                 enumerate(self.board[row]))
@@ -172,6 +183,13 @@ class Board(object):
         return os.linesep.join(
             map(str, [map(lambda x: (x and "%d" % x.owner.id) or 'x', self.board[row]) for row in range(self.rows)])
         )
+
+    @property
+    def nrun_iterator(self):
+        for direction in self.directions:
+            for row in direction[2]:
+                for col in direction[3]:
+                    yield ((row + direction[0], col + direction[1]) for _ in xrange(self.goal))
 
     @property
     def valid_moves_iterator(self):

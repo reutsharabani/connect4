@@ -63,7 +63,15 @@ class MinMaxStrategy(object):
                         ninarow.logic.game.Board.POSITIVE_BOARD)
 
 
-class OpenEndedRunHeuristic(object):
+def unruined_nruns(board):
+    for nrun in board.nrun_iterator:
+        players_on_nrun = tuple(board.get_piece(*location) for location in nrun)
+        owners = set(players_on_nrun)
+        if len(owners) == 1:
+            yield nrun, players_on_nrun.count(next(owners.__iter__()))
+
+
+class PossibleVictoryHeuristic(object):
     def __init__(self, player):
         self.player = player
 
@@ -72,4 +80,5 @@ class OpenEndedRunHeuristic(object):
             return 9999
         if board is ninarow.logic.game.Board.NEGATIVE_BOARD:
             return -9999
-        return len(board.moves)
+        # TODO: scale with run length and strength (already taken pieces)
+        return sum(map(lambda run_player: -2 if run_player[1] is not self.player else 1, unruined_nruns(board)))
