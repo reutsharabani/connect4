@@ -255,7 +255,7 @@ class AbstractPlayer(object):
 
 class HumanPlayer(AbstractPlayer):
     def get_move(self, board, column):
-        LOGGER.debug("human player move: %s" % str(column))
+        LOGGER.debug("Human player playing column: %d" % column)
         return column
 
 
@@ -272,6 +272,7 @@ class ComputerMinMaxPlayer(AbstractPlayer):
         self.difficulty = difficulty
 
     def get_move(self, board, column):
+        LOGGER.debug("Computer player playing column: %d" % column)
         winner = board.get_winner()
         if winner:
             raise BoardWonError("Board already won by %s" % winner)
@@ -279,7 +280,7 @@ class ComputerMinMaxPlayer(AbstractPlayer):
             raise BoardFullError("Board full. Undo or quit.")
         state = self.strategy.get_move(board, startdepth=self.difficulty)
         moves = tuple(s[2] for s in state.moves)
-        LOGGER.debug("Found move: %s" % os.linesep.join(map(str, moves)))
+        LOGGER.debug("Found moves: %s" % os.linesep.join(map(str, moves)))
         return moves[0]
 
 

@@ -317,7 +317,7 @@ class GameBoard(Tk.Frame):
         player = self.board.current_player
         pressed_column = self.get_normalized_coords(event)[0]
         column = self.board.current_player.get_move(self.board, pressed_column)
-        if not column:
+        if column != 0 and not column: # 0 is falsy
             self.canvas.bind("<Button-1>", self.put_one_event)
             LOGGER.debug("Couldn't find column")
             return
