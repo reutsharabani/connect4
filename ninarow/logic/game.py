@@ -115,6 +115,8 @@ class Board(object):
         )
 
     def get_winner(self):
+        if len(list(self.valid_moves_iterator)) == 0:
+            return "draw"
         for row in range(self.rows):
             for col in range(self.columns):
                 piece = self.board[row][col]
@@ -193,8 +195,6 @@ class Board(object):
 
     @property
     def valid_moves_iterator(self):
-        if self.get_winner():
-            return
         for i in xrange(len(self.board[0])):
             # check if column has room
             if self.board[0][i] is None:

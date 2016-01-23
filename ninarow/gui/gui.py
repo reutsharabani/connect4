@@ -11,7 +11,7 @@ sh = logging.StreamHandler()
 sh.setFormatter(formatter)
 sh.setLevel(logging.DEBUG)
 LOGGER.addHandler(sh)
-LOGGER.setLevel(logging.INFO)
+LOGGER.setLevel(logging.WARN)
 
 
 def show_pre_game_menu(old, root):

@@ -10,7 +10,7 @@ sh = logging.StreamHandler()
 sh.setFormatter(formatter)
 sh.setLevel(logging.DEBUG)
 LOGGER.addHandler(sh)
-LOGGER.setLevel(logging.INFO)
+LOGGER.setLevel(logging.WARN)
 
 
 class NaiveHeuristic(object):
@@ -79,7 +79,7 @@ class MinMaxStrategy(object):
                     break
             LOGGER.info("min move: %s, %s" % (str([move[2] for move in b.moves]), str(b)))
             return b
-        best = __abprun(board, startdepth, ninarow.logic.game.Board.NEGATIVE_BOARD,
+        best = __abprun(board, min(startdepth, len(list(board.valid_moves_iterator))), ninarow.logic.game.Board.NEGATIVE_BOARD,
                         ninarow.logic.game.Board.POSITIVE_BOARD)
         LOGGER.info("Best move: %s (score: %d)" % (str(best), self.heuristic.value(best)))
         LOGGER.info("moves: %s)" % str(tuple(x[2] for x in best.moves)))
@@ -113,7 +113,6 @@ class AvailableVictoriesHeuristic(object):
         # TODO: scale with run length and strength (already taken pieces)
 
         def __value(run, owners):
-
             if len(owners) == 0:
                 # available - we want it taken so -1
                 return -1
@@ -131,7 +130,7 @@ class AvailableVictoriesHeuristic(object):
                     return 2 ** taken_count
                 return -(3 ** taken_count)
 
-            if len(owners) == 2:
+            if len(owners) > 1:
                 # ruined...
                 return 0
 
