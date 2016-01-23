@@ -11,7 +11,7 @@ sh = logging.StreamHandler()
 sh.setFormatter(formatter)
 sh.setLevel(logging.DEBUG)
 LOGGER.addHandler(sh)
-LOGGER.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.WARN)
 
 
 def show_pre_game_menu(old, root):
@@ -173,7 +173,7 @@ class PreGameMenu(Tk.Frame):
         players = [
             game.HumanPlayer("name %d" % i) for i in range(self.human_players_widget.get())
         ] + [
-            game.ComputerMinMaxPlayer(game.PossibleVictoryHeuristic, self.difficulty_widget.get()) for _ in range(self.computer_players_widget.get())
+            game.ComputerMinMaxPlayer(game.AvailableVictoriesHeuristic, self.difficulty_widget.get()) for _ in range(self.computer_players_widget.get())
         ]
         start_game(
             self,

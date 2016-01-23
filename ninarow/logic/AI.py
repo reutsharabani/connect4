@@ -2,6 +2,16 @@
 import ninarow.logic.game
 import os
 
+import logging
+
+LOGGER = logging.getLogger("ninarow-AI")
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+sh = logging.StreamHandler()
+sh.setFormatter(formatter)
+sh.setLevel(logging.DEBUG)
+LOGGER.addHandler(sh)
+LOGGER.setLevel(logging.INFO)
+
 
 class NaiveHeuristic(object):
     pass
@@ -35,45 +45,53 @@ class MinMaxStrategy(object):
         self.heuristic = heuristic
 
     def get_move(self, board, startdepth):
+        LOGGER.info("Fetching best move (level: %d)" % startdepth)
         maxplayer = board.current_player
 
         def __abprun(node, depth, a, b):
-            print "prunning..."
+            LOGGER.debug("prunning...")
             if depth == 0 or board.get_winner():
                 return node
 
             if node.current_player is maxplayer:
                 # maximize
                 v = ninarow.logic.game.Board.NEGATIVE_BOARD
+                LOGGER.debug("Moves: %s" % str(list(board.valid_moves_iterator)))
                 for move in board.valid_moves_iterator:
+                    logging.debug("Selected move: %d" % move)
                     v = max(v, __abprun(board.simulate_move(move), depth - 1, a, b), key=self.heuristic.value)
                     a = max(a, v, key=self.heuristic.value)
-                    if b <= a:
+                    if self.heuristic.value(b) <= self.heuristic.value(a):
+                        LOGGER.debug("Pruned at maximize move %d", move)
                         break
                 return v
             # minimize
             v = ninarow.logic.game.Board.POSITIVE_BOARD
+            LOGGER.debug("Moves: %s" % str(list(board.valid_moves_iterator)))
             for move in board.valid_moves_iterator:
+                LOGGER.debug("Selected move: %d" % move)
                 v = min(v, __abprun(board.simulate_move(move), depth - 1, a, b), key=self.heuristic.value)
-                b = min(a, v, key=self.heuristic.value)
-                if b <= a:
+                b = min(b, v, key=self.heuristic.value)
+                if self.heuristic.value(b) <= self.heuristic.value(a):
+                    LOGGER.debug("Pruned at minimize move %d (value: %d)", move, self.heuristic.value(b))
                     break
             return v
-
-        return __abprun(board, startdepth, ninarow.logic.game.Board.NEGATIVE_BOARD,
+        best = __abprun(board, startdepth, ninarow.logic.game.Board.NEGATIVE_BOARD,
                         ninarow.logic.game.Board.POSITIVE_BOARD)
+        LOGGER.debug("Best move: %s", str(best))
+        return best
 
 
-def unruined_nruns(board):
+def nruns_with_owners(board):
     for nrun in board.nrun_iterator:
+        nrun = list(nrun)
         players_on_nrun = tuple(board.get_piece(*location).owner for location in nrun if board.get_piece(*location) is not None)
+        # LOGGER.debug("players on nrun: %s" % str(players_on_nrun))
         owners = set(players_on_nrun)
-        if len(owners) == 1:
-            owner = next(owners.__iter__())
-            yield nrun, players_on_nrun.count(owner), owner
+        yield nrun, owners
 
 
-class PossibleVictoryHeuristic(object):
+class AvailableVictoriesHeuristic(object):
     def __init__(self, player):
         self.player = player
 
@@ -83,12 +101,35 @@ class PossibleVictoryHeuristic(object):
         if board is ninarow.logic.game.Board.NEGATIVE_BOARD:
             return -9999
         # TODO: scale with run length and strength (already taken pieces)
-        unruinedruns = list(unruined_nruns(board))
-        print os.linesep.join(str(l) for l in unruinedruns)
 
-        def __value(run, count, player):
-            result = -2 if player is not self.player else 1
-            print "heuristic result: %d" % result
-            return result
+        def __value(run, owners):
 
-        return sum(map(lambda args: __value(*args), unruined_nruns(board)))
+            if len(owners) == 0:
+                # available - we want it taken so -1
+                return -1
+
+            if len(owners) == 1:
+                _owner = next(iter(owners))
+                # bias towards ruining other player's runs
+                taken_count = 0
+                for x, y in run:
+                    piece = board.get_piece(x, y)
+                    if piece and piece.owner == _owner:
+                        taken_count += 1
+
+                if _owner == self.player:
+                    return 2 ** taken_count
+                return -(3 ** taken_count)
+
+            if len(owners) == 2:
+                # ruined...
+                return 0
+
+        score = 0
+        for nrun_with_owners in nruns_with_owners(board):
+            nrun = list(nrun_with_owners[0])
+            v = __value(nrun, nrun_with_owners[1])
+            # LOGGER.debug("nrun: %s, owners: %s, score: %s" % ([board.get_piece(x, y) for x, y in nrun], [owner.id for owner in nrun_with_owners[1]], v))
+            score += v
+        # LOGGER.debug("Value: %d", score)
+        return score

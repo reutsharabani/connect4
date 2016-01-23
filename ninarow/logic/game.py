@@ -1,7 +1,7 @@
 from random import choice
 import os
 import logging
-from AI import MinMaxStrategy, PossibleVictoryHeuristic
+from AI import MinMaxStrategy, AvailableVictoriesHeuristic
 
 LOGGER = logging.getLogger("ninarow-logic")
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -9,7 +9,7 @@ sh = logging.StreamHandler()
 sh.setFormatter(formatter)
 sh.setLevel(logging.DEBUG)
 LOGGER.addHandler(sh)
-LOGGER.setLevel(logging.DEBUG)
+LOGGER.setLevel(logging.WARN)
 
 
 def make_directions(rows, columns, goal):
@@ -46,22 +46,20 @@ class Board(object):
     NEGATIVE_BOARD = object()
     POSITIVE_BOARD = object()
 
-    def __init__(self, players, rows=6, columns=7, goal=24, tipheuristic=PossibleVictoryHeuristic,
+    def __init__(self, players, rows=6, columns=7, goal=24, tipheuristic=AvailableVictoriesHeuristic,
                  moves=()):
         self.moves = moves
         self.rows = rows
         self.columns = columns
         self.goal = goal
         # tip's column
-        self.tip_strategy = lambda player: MinMaxStrategy(tipheuristic(player)).get_move(self, 6)
+        self.tip_strategy = lambda player: MinMaxStrategy(tipheuristic(player)).get_move(self, 3)
         self.board = [tuple(None for _ in range(columns)) for _ in range(rows)]
 
         self.players = players
         self.current_player = choice(self.players)
 
         self.directions = make_directions(self.rows, self.columns, self.goal)
-
-        LOGGER.debug("%d X %x board initialized: %s" % (rows, columns, str(self.board)))
 
     def is_full(self):
         for row in range(self.rows):
@@ -149,11 +147,13 @@ class Board(object):
             LOGGER.debug("row: %d, column: %d" % (row, _column))
             _piece = self.board[row][_column]
 
-            LOGGER.debug("Trying to put %s in %d, %d - %s" % (_player, row, _column, _piece))
+            LOGGER.debug("Trying to put %s in (%d, %d) - currently: %s" % (_player, row, _column, _piece))
             if not _piece:
+                LOGGER.debug("old row: %r, changing column: %d", self.board[row], _column)
                 self.board[row] = tuple(
                     piece if not column == _column else Piece(row, _column, _player) for column, piece in
                     enumerate(self.board[row]))
+                LOGGER.debug("new row: %r", self.board[row])
                 self.move_turn_to_next_player()
                 self.moves = self.moves + ((self.current_player, row, _column,),)
                 return row, _column
@@ -189,7 +189,7 @@ class Board(object):
         for direction in self.directions:
             for row in direction[2]:
                 for col in direction[3]:
-                    yield ((row + direction[0], col + direction[1]) for _ in xrange(self.goal))
+                    yield ((row + direction[0] * x, col + direction[1] * x) for x in xrange(self.goal))
 
     @property
     def valid_moves_iterator(self):
@@ -201,12 +201,14 @@ class Board(object):
                 yield i
 
     def copy(self, move):
+
         LOGGER.debug("Creating copy of board with move: %s", str(move))
         _board = Board(
             self.players, rows=self.rows, columns=self.columns, goal=self.goal
         )
-        _board.board = [x for x in self.board]
+
         # these are not set correctly on initialization
+        _board.board = [x for x in self.board]
         _board.current_player = self.current_player
         _board.put_one(move)
         return _board
@@ -214,6 +216,7 @@ class Board(object):
     def simulate_move(self, move):
         LOGGER.debug("simulating move: %s" % move)
         new_board = self.copy(move)
+        LOGGER.debug("%d X %d board initialized: %s" % (new_board.rows, new_board.columns, str(new_board)))
         return new_board
 
 
