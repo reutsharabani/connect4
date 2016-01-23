@@ -11,7 +11,7 @@ sh = logging.StreamHandler()
 sh.setFormatter(formatter)
 sh.setLevel(logging.DEBUG)
 LOGGER.addHandler(sh)
-LOGGER.setLevel(logging.WARN)
+LOGGER.setLevel(logging.INFO)
 
 
 def show_pre_game_menu(old, root):
@@ -170,6 +170,7 @@ class PreGameMenu(Tk.Frame):
         self.message_queue.put("stop")
 
         # add gui menu to select players
+        LOGGER.info("difficulty: %d" % self.difficulty_widget.get())
         players = [
             game.HumanPlayer("name %d" % i) for i in range(self.human_players_widget.get())
         ] + [

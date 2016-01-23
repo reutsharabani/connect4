@@ -50,35 +50,39 @@ class MinMaxStrategy(object):
 
         def __abprun(node, depth, a, b):
             LOGGER.debug("prunning...")
-            if depth == 0 or board.get_winner():
+            if depth == 0 or node.get_winner():
                 return node
 
             if node.current_player is maxplayer:
                 # maximize
                 v = ninarow.logic.game.Board.NEGATIVE_BOARD
-                LOGGER.debug("Moves: %s" % str(list(board.valid_moves_iterator)))
-                for move in board.valid_moves_iterator:
-                    logging.debug("Selected move: %d" % move)
-                    v = max(v, __abprun(board.simulate_move(move), depth - 1, a, b), key=self.heuristic.value)
+                # LOGGER.debug("Moves: %s" % str(list(node.valid_moves_iterator)))
+                for move in node.valid_moves_iterator:
+                    # LOGGER.info("Selected max move: %d, depth: %d" % (move, depth))
+                    v = max(v, __abprun(node.simulate_move(move), depth - 1, a, b), key=self.heuristic.value)
                     a = max(a, v, key=self.heuristic.value)
                     if self.heuristic.value(b) <= self.heuristic.value(a):
-                        LOGGER.debug("Pruned at maximize move %d", move)
+                        # LOGGER.info("Pruned at maximize move %d (value: %d)", move, self.heuristic.value(b))
                         break
-                return v
+
+                LOGGER.info("max move: %s, %s" % (str([move[2] for move in a.moves]), str(a)))
+                return a
             # minimize
             v = ninarow.logic.game.Board.POSITIVE_BOARD
-            LOGGER.debug("Moves: %s" % str(list(board.valid_moves_iterator)))
-            for move in board.valid_moves_iterator:
-                LOGGER.debug("Selected move: %d" % move)
-                v = min(v, __abprun(board.simulate_move(move), depth - 1, a, b), key=self.heuristic.value)
+            # LOGGER.debug("Moves: %s" % str(list(node.valid_moves_iterator)))
+            for move in node.valid_moves_iterator:
+                # LOGGER.info("Selected min move: %d, depth: %d" % (move, depth))
+                v = min(v, __abprun(node.simulate_move(move), depth - 1, a, b), key=self.heuristic.value)
                 b = min(b, v, key=self.heuristic.value)
                 if self.heuristic.value(b) <= self.heuristic.value(a):
-                    LOGGER.debug("Pruned at minimize move %d (value: %d)", move, self.heuristic.value(b))
+                    # LOGGER.info("Pruned at minimize move %d (value: %d)", move, self.heuristic.value(b))
                     break
-            return v
+            LOGGER.info("min move: %s, %s" % (str([move[2] for move in b.moves]), str(b)))
+            return b
         best = __abprun(board, startdepth, ninarow.logic.game.Board.NEGATIVE_BOARD,
                         ninarow.logic.game.Board.POSITIVE_BOARD)
-        LOGGER.debug("Best move: %s", str(best))
+        LOGGER.info("Best move: %s (score: %d)" % (str(best), self.heuristic.value(best)))
+        LOGGER.info("moves: %s)" % str(tuple(x[2] for x in best.moves)))
         return best
 
 
@@ -100,6 +104,12 @@ class AvailableVictoriesHeuristic(object):
             return 9999
         if board is ninarow.logic.game.Board.NEGATIVE_BOARD:
             return -9999
+        winner = board.get_winner()
+        if winner:
+            if winner is self.player:
+                return 9998
+            return -9998
+
         # TODO: scale with run length and strength (already taken pieces)
 
         def __value(run, owners):

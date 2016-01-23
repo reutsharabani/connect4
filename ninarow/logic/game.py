@@ -53,7 +53,7 @@ class Board(object):
         self.columns = columns
         self.goal = goal
         # tip's column
-        self.tip_strategy = lambda player: MinMaxStrategy(tipheuristic(player)).get_move(self, 3)
+        self.tip_strategy = lambda player: MinMaxStrategy(tipheuristic(player)).get_move(self, 4)
         self.board = [tuple(None for _ in range(columns)) for _ in range(rows)]
 
         self.players = players
@@ -204,7 +204,7 @@ class Board(object):
 
         LOGGER.debug("Creating copy of board with move: %s", str(move))
         _board = Board(
-            self.players, rows=self.rows, columns=self.columns, goal=self.goal
+            self.players, rows=self.rows, columns=self.columns, goal=self.goal, moves=self.moves
         )
 
         # these are not set correctly on initialization
@@ -284,7 +284,7 @@ class ComputerMinMaxPlayer(AbstractPlayer):
         state = self.strategy.get_move(board, startdepth=self.difficulty)
         moves = tuple(s[2] for s in state.moves)
         LOGGER.debug("Found moves: %s" % os.linesep.join(map(str, moves)))
-        return moves[0]
+        return moves[len(board.moves):][0]
 
 
 class Piece(object):
