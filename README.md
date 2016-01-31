@@ -8,3 +8,7 @@ To play:
 And in python:
 
     import ninarow
+
+Sample:
+
+<a href="http://tinypic.com?ref=33nd92b" target="_blank"><img src="http://i68.tinypic.com/33nd92b.png" border="0" alt="Image and video hosting by TinyPic"></a>
