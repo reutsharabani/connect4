@@ -1,4 +1,4 @@
-# N-in-a-row
+# Connect 4
 Connect-4 game implementation in Python 2, with tkinter GUI.
 
 To play:
