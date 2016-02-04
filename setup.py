@@ -3,10 +3,10 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 # Get the long description from the relevant file
 setup(
-    name='ninarow',
+    name='connect4',
     version='0.0.3',
-    description='N-in-a-row Game',
-    long_description='Simple implementation for the N-in-a-row (originally 4-in-a-row)'
+    description='connect 4',
+    long_description='Simple implementation for the connect 4 (originally 4-in-a-row)'
                      ' classic logic using tkinter GUI',
     url='https://github.com/reutsharabani/N-in-a-row',
     # Author details
@@ -25,7 +25,8 @@ setup(
         'Programming Language :: Python :: 2.7'
     ],
     # What does your project relate to?
-    keywords='Simple and fun board logic to play with younger members of family.',
+    # keywords='Simple and fun board logic to play with younger members of family.',
+    keywords = ['games', 'board games'],
     # You can just specify the packages manually here if your project is
     #  simple. Or you can use find_packages().
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),

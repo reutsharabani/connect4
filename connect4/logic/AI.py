@@ -1,10 +1,10 @@
 # -*- coding: utf8 -*-
-import ninarow.logic.game
+import connect4.logic.game
 import os
 
 import logging
 
-LOGGER = logging.getLogger("ninarow-AI")
+LOGGER = logging.getLogger("connect4-AI")
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 sh = logging.StreamHandler()
 sh.setFormatter(formatter)
@@ -55,7 +55,7 @@ class MinMaxStrategy(object):
 
             if node.current_player is maxplayer:
                 # maximize
-                v = ninarow.logic.game.Board.NEGATIVE_BOARD
+                v = connect4.logic.game.Board.NEGATIVE_BOARD
                 # LOGGER.debug("Moves: %s" % str(list(node.valid_moves_iterator)))
                 for move in node.valid_moves_iterator:
                     # LOGGER.info("Selected max move: %d, depth: %d" % (move, depth))
@@ -68,7 +68,7 @@ class MinMaxStrategy(object):
                 LOGGER.info("max move: %s, %s" % (str([move[2] for move in a.moves]), str(a)))
                 return a
             # minimize
-            v = ninarow.logic.game.Board.POSITIVE_BOARD
+            v = connect4.logic.game.Board.POSITIVE_BOARD
             # LOGGER.debug("Moves: %s" % str(list(node.valid_moves_iterator)))
             for move in node.valid_moves_iterator:
                 # LOGGER.info("Selected min move: %d, depth: %d" % (move, depth))
@@ -79,8 +79,8 @@ class MinMaxStrategy(object):
                     break
             LOGGER.info("min move: %s, %s" % (str([move[2] for move in b.moves]), str(b)))
             return b
-        best = __abprun(board, min(startdepth, len(list(board.valid_moves_iterator))), ninarow.logic.game.Board.NEGATIVE_BOARD,
-                        ninarow.logic.game.Board.POSITIVE_BOARD)
+        best = __abprun(board, min(startdepth, len(list(board.valid_moves_iterator))), connect4.logic.game.Board.NEGATIVE_BOARD,
+                        connect4.logic.game.Board.POSITIVE_BOARD)
         LOGGER.info("Best move: %s (score: %d)" % (str(best), self.heuristic.value(best)))
         LOGGER.info("moves: %s)" % str(tuple(x[2] for x in best.moves)))
         return best
@@ -100,9 +100,9 @@ class AvailableVictoriesHeuristic(object):
         self.player = player
 
     def value(self, board):
-        if board is ninarow.logic.game.Board.POSITIVE_BOARD:
+        if board is connect4.logic.game.Board.POSITIVE_BOARD:
             return 9999
-        if board is ninarow.logic.game.Board.NEGATIVE_BOARD:
+        if board is connect4.logic.game.Board.NEGATIVE_BOARD:
             return -9999
         winner = board.get_winner()
         if winner:

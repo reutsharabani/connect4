@@ -1,11 +1,11 @@
 import Tkinter as Tk
-from ninarow.logic import game
+from connect4.logic import game
 import logging
 import Queue
 import time
 import threading
 
-LOGGER = logging.getLogger("ninarow-gui")
+LOGGER = logging.getLogger("connect4-gui")
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 sh = logging.StreamHandler()
 sh.setFormatter(formatter)

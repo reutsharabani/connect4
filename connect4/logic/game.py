@@ -3,7 +3,7 @@ import os
 import logging
 from AI import MinMaxStrategy, AvailableVictoriesHeuristic
 
-LOGGER = logging.getLogger("ninarow-logic")
+LOGGER = logging.getLogger("connect4-logic")
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 sh = logging.StreamHandler()
 sh.setFormatter(formatter)
