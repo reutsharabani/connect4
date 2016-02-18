@@ -3,11 +3,11 @@ Connect-4 game implementation in Python 2, with tkinter GUI.
 
 To play:
 
-    pip install ninarow
+    pip install connect4
 
 And in python:
 
-    import ninarow
+    import connect4
 
 Sample:
 
